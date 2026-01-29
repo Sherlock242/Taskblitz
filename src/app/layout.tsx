@@ -5,6 +5,10 @@ import { Toaster } from "@/components/ui/toaster";
 export const metadata: Metadata = {
   title: 'Task Blitz',
   description: 'Instantly assign and track tasks.',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+  },
 };
 
 export default function RootLayout({
