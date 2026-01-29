@@ -1,0 +1,41 @@
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
+
+export async function assignTasks(templateId: string, userId: string) {
+    if (!templateId || !userId) {
+        return { error: { message: 'Please select both a template and a user.' } };
+    }
+
+    const supabase = createClient();
+
+    const [templateRes, userRes] = await Promise.all([
+        supabase.from('templates').select('name, tasks').eq('id', templateId).single(),
+        supabase.from('profiles').select('name').eq('id', userId).single()
+    ]);
+
+    if (templateRes.error || !templateRes.data || userRes.error || !userRes.data) {
+        return { error: { message: 'Invalid template or user selected.' } };
+    }
+    
+    const template = templateRes.data;
+    const user = userRes.data;
+
+    const newTasks = template.tasks.map(taskName => ({
+        name: taskName,
+        template_id: templateId,
+        user_id: userId,
+        status: 'To Do',
+    }));
+
+    const { error } = await supabase.from('tasks').insert(newTasks);
+
+    if (error) {
+        return { error: { message: `Error assigning tasks: ${error.message}` } };
+    }
+
+    revalidatePath('/dashboard');
+
+    return { data: { message: `Assigned ${template.tasks.length} tasks from "${template.name}" to ${user.name}.` } };
+}
