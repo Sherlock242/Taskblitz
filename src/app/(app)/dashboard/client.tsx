@@ -48,25 +48,35 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
   };
 
   const groupedByTemplate = useMemo(() => {
-    const groups: Record<string, { id: string; name: string; description: string; tasks: TaskWithRelations[], assigner: Pick<User, 'name' | 'avatar_url'> | null; }> = {};
+    // The key will be a combination of templateId and userId to create unique groups.
+    const groups: Record<string, { 
+        id: string; 
+        name: string; 
+        description: string; 
+        tasks: TaskWithRelations[]; 
+        assigner: Pick<User, 'name' | 'avatar_url'> | null;
+        assignee: Pick<User, 'name' | 'avatar_url'> | null;
+    }> = {};
     
-    // Group tasks by template
     tasks.forEach(task => {
-        // Use a placeholder for tasks without a template
         const templateId = task.template_id || 'unassigned';
+        const userId = task.user_id;
+        const groupKey = `${templateId}-${userId}`;
+
         const templateName = task.templates?.name || 'General Tasks';
         const templateDescription = task.templates?.description || 'Tasks not associated with a template.';
 
-        if (!groups[templateId]) {
-            groups[templateId] = {
-                id: templateId,
+        if (!groups[groupKey]) {
+            groups[groupKey] = {
+                id: groupKey,
                 name: templateName,
                 description: templateDescription,
                 tasks: [],
                 assigner: task.assigner,
+                assignee: task.profiles, // The user assigned the tasks
             };
         }
-        groups[templateId].tasks.push(task);
+        groups[groupKey].tasks.push(task);
     });
 
     return Object.values(groups);
@@ -108,45 +118,47 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
         {groupedByTemplate.map(group => (
             <Card key={group.id} className="w-full">
                 <CardHeader>
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start gap-4">
                         <div>
                             <CardTitle className="font-headline">{group.name}</CardTitle>
                             {group.description && <CardDescription>{group.description}</CardDescription>}
                         </div>
-                        {group.assigner && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
-                                    <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col text-xs text-right">
-                                    <span>Assigned by</span>
-                                    <span className="font-medium text-foreground">{group.assigner.name}</span>
+                        <div className="flex flex-col gap-4 items-end flex-shrink-0">
+                            {group.assignee && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
+                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col text-xs text-right">
+                                        <span>Assigned to</span>
+                                        <span className="font-medium text-foreground">{group.assignee.name}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                            {group.assigner && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
+                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col text-xs text-right">
+                                        <span>Assigned by</span>
+                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 p-4 pt-0">
                     {group.tasks.map(task => {
-                        const user = task.profiles;
                         return (
                             <Card key={task.id}>
                                 <CardHeader className="pb-4 flex-row items-start justify-between">
-                                    <div>
                                     <CardTitle className="text-lg">{task.name}</CardTitle>
-                                    {user && (
-                                        <div className="flex items-center gap-2 pt-2">
-                                        <Avatar className="h-6 w-6">
-                                            <AvatarImage src={user.avatar_url || undefined} />
-                                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <span className="text-sm text-muted-foreground">Assigned to {user.name}</span>
-                                        </div>
-                                    )}
-                                    </div>
                                     {userRole === 'Admin' && (
-                                    <DeleteTaskDialog taskId={task.id} taskName={task.name} />
+                                        <DeleteTaskDialog taskId={task.id} taskName={task.name} />
                                     )}
                                 </CardHeader>
                                 <CardContent>
@@ -191,18 +203,32 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                             <CardTitle className="font-headline">{group.name}</CardTitle>
                             {group.description && <CardDescription>{group.description}</CardDescription>}
                         </div>
-                        {group.assigner && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
-                                    <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col text-xs text-right">
-                                    <span>Assigned by</span>
-                                    <span className="font-medium text-foreground">{group.assigner.name}</span>
+                        <div className="flex items-center gap-6">
+                            {group.assignee && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
+                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col text-xs text-right">
+                                        <span>Assigned to</span>
+                                        <span className="font-medium text-foreground">{group.assignee.name}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                            {group.assigner && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
+                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col text-xs text-right">
+                                        <span>Assigned by</span>
+                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -210,7 +236,6 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                         <TableHeader>
                             <TableRow>
                             <TableHead>Task</TableHead>
-                            <TableHead>Assigned To</TableHead>
                             <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-center">Change Status</TableHead>
                             {userRole === 'Admin' && <TableHead className="text-right">Actions</TableHead>}
@@ -218,21 +243,9 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                         </TableHeader>
                         <TableBody>
                             {group.tasks.map(task => {
-                                const user = task.profiles;
                                 return (
                                     <TableRow key={task.id}>
                                         <TableCell className="font-medium">{task.name}</TableCell>
-                                        <TableCell>
-                                            {user ? (
-                                            <div className="flex items-center gap-2">
-                                                <Avatar className="h-6 w-6">
-                                                <AvatarImage src={user.avatar_url || undefined} />
-                                                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <span>{user.name}</span>
-                                            </div>
-                                            ) : 'Unassigned'}
-                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-center">
                                                 <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' ? 'animate-pulse' : ''}>
