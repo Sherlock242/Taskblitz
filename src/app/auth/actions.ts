@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { revalidatePath } from 'next/cache';
 
 export async function login(formData: FormData) {
   const email = formData.get('email') as string
@@ -15,9 +16,10 @@ export async function login(formData: FormData) {
   })
 
   if (error) {
-    return redirect(`/login?error=${error.message}`)
+    return { error: { message: error.message } };
   }
 
+  revalidatePath('/', 'layout');
   return redirect('/dashboard')
 }
 
@@ -44,13 +46,14 @@ export async function signup(formData: FormData) {
     });
 
     if (error) {
-        return redirect(`/signup?message=${error.message}`)
+        return { error: { message: error.message } };
     }
     
     if (data.user && !data.session) {
-      return redirect('/login?message=Check your email to continue the sign-up process.');
+      return { data: { message: 'Check your email to continue the sign-up process.' } };
     }
     
+    revalidatePath('/', 'layout');
     return redirect('/dashboard');
 }
 
@@ -72,31 +75,31 @@ export async function requestPasswordReset(formData: FormData) {
   })
 
   if (error) {
-    return redirect(`/forgot-password?error=${error.message}`)
+    return { error: { message: error.message } }
   }
 
-  return redirect('/forgot-password?message=Password reset link has been sent to your email.')
+  return { data: { message: 'Password reset link has been sent to your email.' } }
 }
 
 export async function resetPassword(formData: FormData) {
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirm-password') as string
-  const supabase = createClient()
   
   if (password !== confirmPassword) {
-      return redirect('/reset-password?error=Passwords do not match')
+      return { error: { message: 'Passwords do not match.' } };
   }
   
   if (password.length < 6) {
-      return redirect('/reset-password?error=Password must be at least 6 characters long')
+      return { error: { message: 'Password must be at least 6 characters long.' } };
   }
 
+  const supabase = createClient()
   const { error } = await supabase.auth.updateUser({ password })
 
   if (error) {
-    return redirect(`/reset-password?error=${error.message}`)
+    return { error: { message: error.message } };
   }
     
   await supabase.auth.signOut()
-  return redirect('/login?message=Your password has been reset successfully. Please log in.')
+  return { data: { message: 'Your password has been reset successfully. Please log in.' } };
 }

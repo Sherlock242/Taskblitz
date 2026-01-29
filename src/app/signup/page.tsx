@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SignupForm } from './client';
 
-export default function SignupPage({ searchParams }: { searchParams: { message: string } }) {
+export default function SignupPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -14,7 +14,7 @@ export default function SignupPage({ searchParams }: { searchParams: { message: 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SignupForm searchParams={searchParams} />
+          <SignupForm />
           <div className="mt-4 text-center text-sm">
             Already have an account?{' '}
             <Link href="/login" className="underline">

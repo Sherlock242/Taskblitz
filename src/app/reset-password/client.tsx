@@ -1,16 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { resetPassword } from '@/app/auth/actions'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useToast } from '@/hooks/use-toast'
 
-export function ResetPasswordForm({ searchParams }: { searchParams: { message?: string; error?: string } }) {
-  const [isSession, setIsSession] = useState(false)
-  const [loading, setLoading] = useState(true)
+export function ResetPasswordForm() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isSession, setIsSession] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     let recoveryEventFired = false;
@@ -23,7 +29,6 @@ export function ResetPasswordForm({ searchParams }: { searchParams: { message?: 
         }
     });
 
-    // If after a short delay the event hasn't fired, assume no valid token.
     const timer = setTimeout(() => {
         if (!recoveryEventFired) {
             setLoading(false);
@@ -36,6 +41,25 @@ export function ResetPasswordForm({ searchParams }: { searchParams: { message?: 
     };
   }, []);
   
+  const handleSubmit = (formData: FormData) => {
+    startTransition(async () => {
+      const result = await resetPassword(formData);
+      if (result?.error) {
+        toast({
+          title: 'Error',
+          description: result.error.message,
+          variant: 'destructive',
+        });
+      } else if (result?.data) {
+        toast({
+          title: 'Success!',
+          description: result.data.message,
+        });
+        router.push('/login');
+      }
+    });
+  };
+
   if (loading) {
       return (
           <div className="grid gap-4">
@@ -61,7 +85,7 @@ export function ResetPasswordForm({ searchParams }: { searchParams: { message?: 
   }
 
   return (
-    <form action={resetPassword} className="grid gap-4">
+    <form ref={formRef} action={handleSubmit} className="grid gap-4">
       <div className="grid gap-2">
         <Label htmlFor="password">New Password</Label>
         <Input
@@ -69,6 +93,7 @@ export function ResetPasswordForm({ searchParams }: { searchParams: { message?: 
           name="password"
           type="password"
           required
+          disabled={isPending}
         />
       </div>
       <div className="grid gap-2">
@@ -78,15 +103,11 @@ export function ResetPasswordForm({ searchParams }: { searchParams: { message?: 
           name="confirm-password"
           type="password"
           required
+          disabled={isPending}
         />
       </div>
-      {searchParams.error && (
-        <div className="text-sm font-medium text-destructive p-2 bg-destructive/10 rounded-md border border-destructive/20">
-          {searchParams.error}
-        </div>
-      )}
-      <Button type="submit" className="w-full">
-        Reset Password
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? 'Resetting...' : 'Reset Password'}
       </Button>
     </form>
   )

@@ -1,11 +1,8 @@
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { requestPasswordReset } from '@/app/auth/actions';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { ForgotPasswordForm } from './form';
 
-export default function ForgotPasswordPage({ searchParams }: { searchParams: { message?: string, error?: string } }) {
+export default function ForgotPasswordPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -17,32 +14,7 @@ export default function ForgotPasswordPage({ searchParams }: { searchParams: { m
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={requestPasswordReset} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="m@example.com"
-                required
-              />
-            </div>
-            
-            {searchParams.message && (
-                 <div className="text-sm font-medium text-primary p-2 bg-primary/10 rounded-md border border-primary/20">
-                    {searchParams.message}
-                </div>
-            )}
-            {searchParams.error && (
-                 <div className="text-sm font-medium text-destructive p-2 bg-destructive/10 rounded-md border border-destructive/20">
-                    {searchParams.error}
-                </div>
-            )}
-            <Button type="submit" className="w-full">
-              Send Reset Link
-            </Button>
-          </form>
+          <ForgotPasswordForm />
            <div className="mt-4 text-center text-sm">
             Remembered your password?{' '}
             <Link href="/login" className="underline">

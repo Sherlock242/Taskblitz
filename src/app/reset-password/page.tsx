@@ -1,7 +1,7 @@
 import { ResetPasswordForm } from './client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function ResetPasswordPage({ searchParams }: { searchParams: { message?: string, error?: string } }) {
+export default function ResetPasswordPage() {
     return (
         <div className="flex items-center justify-center min-h-screen bg-background">
             <Card className="mx-auto max-w-sm">
@@ -12,7 +12,7 @@ export default function ResetPasswordPage({ searchParams }: { searchParams: { me
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ResetPasswordForm searchParams={searchParams} />
+                    <ResetPasswordForm />
                 </CardContent>
             </Card>
         </div>
