@@ -36,7 +36,7 @@ export async function updateTemplate(id: string, name: string, tasks: string[]) 
 
   const { data, error } = await supabase
     .from('templates')
-    .update({ name, tasks, updated_at: new Date().toISOString() })
+    .update({ name, tasks })
     .eq('id', id)
     .select()
     .single();
