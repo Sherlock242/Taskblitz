@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { login } from '@/app/auth/actions'
 
-function FormContent({ searchParams }: { searchParams: { message: string } }) {
+function FormContent({ searchParams }: { searchParams: { message?: string, error?: string } }) {
   const { pending } = useFormStatus()
 
   return (
@@ -42,8 +42,13 @@ function FormContent({ searchParams }: { searchParams: { message: string } }) {
         />
       </div>
       {searchParams.message && (
-        <div className="text-sm font-medium text-destructive p-2 bg-destructive/10 rounded-md border border-destructive/20">
+        <div className="text-sm font-medium text-primary p-2 bg-primary/10 rounded-md border border-primary/20">
           {searchParams.message}
+        </div>
+      )}
+      {searchParams.error && (
+        <div className="text-sm font-medium text-destructive p-2 bg-destructive/10 rounded-md border border-destructive/20">
+          {searchParams.error}
         </div>
       )}
       <Button type="submit" className="w-full" disabled={pending}>
@@ -53,7 +58,7 @@ function FormContent({ searchParams }: { searchParams: { message: string } }) {
   )
 }
 
-export function LoginForm({ searchParams }: { searchParams: { message: string } }) {
+export function LoginForm({ searchParams }: { searchParams: { message?: string, error?: string } }) {
   return (
     <form action={login} className="grid gap-4">
       <FormContent searchParams={searchParams} />

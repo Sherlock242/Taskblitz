@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LoginForm } from './client';
 import { Workflow } from 'lucide-react';
 
-export default async function LoginPage({ searchParams }: { searchParams: { message: string } }) {
+export default async function LoginPage({ searchParams }: { searchParams: { message?: string, error?: string } }) {
   const supabase = createClient();
 
   const {
