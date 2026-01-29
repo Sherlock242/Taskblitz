@@ -35,7 +35,7 @@ async function DashboardData() {
 
   const { data: tasksData, error: tasksError } = await query
     .order('created_at', { ascending: true })
-    .order('position', { ascending: true });
+    .order('position', { ascending: true, nullsFirst: false });
 
 
   if (tasksError) {
