@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle, SheetHeader, SheetDescription } from '@/components/ui/sheet';
 
 const adminAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-admin')?.imageUrl || '';
 
@@ -70,7 +70,10 @@ export default function AppLayout({ children }: PropsWithChildren) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
-              <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+              <SheetHeader>
+                <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                <SheetDescription className="sr-only">A list of navigation links for the app.</SheetDescription>
+              </SheetHeader>
               <nav className="grid gap-2 text-lg font-medium">
                 <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold mb-4">
                   <Workflow className="h-6 w-6" />
