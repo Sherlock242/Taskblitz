@@ -50,8 +50,12 @@ export default async function AppLayout({ children }: PropsWithChildren) {
             <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
               <NavLink href="/dashboard" icon={LayoutDashboard}>Dashboard</NavLink>
               <NavLink href="/users" icon={Users}>Users</NavLink>
-              <NavLink href="/templates" icon={ClipboardList}>Templates</NavLink>
-              <NavLink href="/assign" icon={Send}>Assign Tasks</NavLink>
+              {profile?.role === 'Admin' && (
+                <>
+                  <NavLink href="/templates" icon={ClipboardList}>Templates</NavLink>
+                  <NavLink href="/assign" icon={Send}>Assign Tasks</NavLink>
+                </>
+              )}
             </nav>
           </div>
         </div>
@@ -87,18 +91,22 @@ export default async function AppLayout({ children }: PropsWithChildren) {
                     Users
                   </Link>
                 </SheetClose>
-                <SheetClose asChild>
-                  <Link href="/templates" className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">
-                    <ClipboardList className="h-5 w-5" />
-                    Templates
-                  </Link>
-                </SheetClose>
-                <SheetClose asChild>
-                  <Link href="/assign" className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">
-                    <Send className="h-5 w-5" />
-                    Assign Tasks
-                  </Link>
-                </SheetClose>
+                {profile?.role === 'Admin' && (
+                  <>
+                    <SheetClose asChild>
+                      <Link href="/templates" className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">
+                        <ClipboardList className="h-5 w-5" />
+                        Templates
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link href="/assign" className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">
+                        <Send className="h-5 w-5" />
+                        Assign Tasks
+                      </Link>
+                    </SheetClose>
+                  </>
+                )}
               </nav>
             </SheetContent>
           </Sheet>

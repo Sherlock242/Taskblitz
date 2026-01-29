@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
 import type { Template, User } from '@/lib/types';
+import { redirect } from 'next/navigation';
 
 
 async function AssignData() {
@@ -45,7 +46,24 @@ function AssignSkeleton() {
 }
 
 
-export default function AssignPage() {
+export default async function AssignPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profile?.role !== 'Admin') {
+    redirect('/dashboard');
+  }
+
   return (
     <div className="flex justify-center items-start pt-8">
       <Suspense fallback={<AssignSkeleton />}>

@@ -5,6 +5,7 @@ import { ListChecks } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
 import { AddTemplateDialog } from './dialog';
+import { redirect } from 'next/navigation';
 
 async function TemplatesList() {
     const supabase = createClient();
@@ -71,6 +72,10 @@ export default async function TemplatesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     // Non-null assertion is safe because this page is protected by layout
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single();
+
+    if (profile?.role !== 'Admin') {
+        redirect('/dashboard');
+    }
     
     return (
         <div className="flex flex-col gap-4">
