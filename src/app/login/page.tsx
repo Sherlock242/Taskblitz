@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase-client';
+import { useAuth } from '@/contexts/auth-provider';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -16,6 +17,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // If the user object exists, it means they are logged in.
+    // Redirect them to the dashboard.
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,12 +39,18 @@ export default function LoginPage() {
       toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Login Successful', description: "Welcome back!" });
-      // The redirect is now handled by the main app layout listening to auth changes.
-      // No router.push needed here.
+      // The redirect is now handled by the useEffect hook watching for the user state change.
     }
     setLoading(false);
   };
   
+  // We don't render anything if the user is already logged in,
+  // as the useEffect above will trigger a redirect.
+  // This prevents a "flash" of the login form.
+  if (user) {
+    return null;
+  }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="mx-auto max-w-sm">
