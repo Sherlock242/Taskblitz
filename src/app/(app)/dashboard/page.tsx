@@ -3,12 +3,37 @@ import { DashboardClient, type TaskWithProfile } from './client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import React, { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 
 async function DashboardData() {
   const supabase = createClient();
-  const { data: tasksData, error: tasksError } = await supabase
-    .from('tasks')
-    .select('*, profiles(name, avatar_url)');
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    // This should be handled by layout, but as a safeguard
+    return redirect('/login');
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error('Error fetching profile', profileError);
+    return <p className="text-destructive text-center">Could not load your profile.</p>;
+  }
+
+  let query = supabase.from('tasks').select('*, profiles(name, avatar_url)');
+
+  if (profile.role === 'Member') {
+    query = query.eq('user_id', user.id);
+  }
+
+  const { data: tasksData, error: tasksError } = await query;
+
 
   if (tasksError) {
     console.error('Error fetching tasks', tasksError);
