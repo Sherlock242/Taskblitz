@@ -136,7 +136,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithProfile[],
               <TableHead>Task</TableHead>
               <TableHead>Assigned To</TableHead>
               <TableHead className="text-center">Status</TableHead>
-              <TableHead className="text-right">Change Status</TableHead>
+              <TableHead className="text-center">Change Status</TableHead>
               {userRole === 'Admin' && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -164,21 +164,23 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithProfile[],
                         </Badge>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Select
-                      defaultValue={task.status}
-                      onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                      disabled={isPending}
-                    >
-                      <SelectTrigger className="w-[180px] h-9 ml-auto">
-                        <SelectValue placeholder="Change status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="To Do">To Do</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Done">Done</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <TableCell>
+                    <div className="flex justify-center">
+                      <Select
+                        defaultValue={task.status}
+                        onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
+                        disabled={isPending}
+                      >
+                        <SelectTrigger className="w-[180px] h-9">
+                          <SelectValue placeholder="Change status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="To Do">To Do</SelectItem>
+                          <SelectItem value="In Progress">In Progress</SelectItem>
+                          <SelectItem value="Done">Done</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </TableCell>
                   {userRole === 'Admin' && (
                     <TableCell className="text-right">
