@@ -4,6 +4,8 @@ import { logout } from '@/app/auth/actions'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { LogOut, User } from 'lucide-react'
+import Link from 'next/link'
 
 export const UserNav = ({ user }: { user: { name: string, email: string, avatar_url: string } }) => {
     return (
@@ -24,8 +26,16 @@ export const UserNav = ({ user }: { user: { name: string, email: string, avatar_
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={async () => await logout()}>
-                  Log out
+                <DropdownMenuItem asChild>
+                    <Link href="/profile" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Profile Settings</span>
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={async () => await logout()} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

@@ -137,6 +137,21 @@ CREATE POLICY "Admins can view all tasks." ON tasks FOR SELECT USING ((select ro
 CREATE POLICY "Users can insert tasks." ON tasks FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can update their own tasks." ON tasks FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Admins can delete tasks." ON tasks FOR DELETE USING ((select role from profiles where id = auth.uid()) = 'Admin');
+
+
+-- 4. SET UP USER DELETION
+
+-- Create a function to allow a user to delete their own account
+create or replace function public.delete_own_user_account()
+returns void
+language sql
+security definer
+as $$
+  delete from auth.users where id = auth.uid();
+$$;
+
+-- Grant execute permission on the function to authenticated users
+grant execute on function public.delete_own_user_account() to authenticated;
 ```
 
 ## How to Run the Application
