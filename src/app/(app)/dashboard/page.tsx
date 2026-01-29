@@ -38,21 +38,58 @@ export default function DashboardPage() {
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // 1. Fetch tasks
+    const { data: tasksData, error: tasksError } = await supabase
       .from('tasks')
-      .select('*, profiles (name, avatar_url)')
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching tasks', error);
+    if (tasksError) {
+      console.error('Error fetching tasks', tasksError);
       toast({ title: 'Error', description: 'Could not fetch tasks.', variant: 'destructive' });
-    } else {
-      const formattedTasks = data.map(task => ({
-        ...task,
-        userId: task.user_id,
-      })) as unknown as TaskWithProfile[];
-      setTasks(formattedTasks);
+      setLoading(false);
+      return;
     }
+    
+    if (!tasksData) {
+        setTasks([]);
+        setLoading(false);
+        return;
+    }
+
+    // 2. Get unique user IDs from the tasks
+    const userIds = [...new Set(tasksData.map(task => task.user_id).filter(Boolean))];
+
+    let profilesById: Record<string, Pick<User, 'name' | 'avatar_url'>> = {};
+
+    if (userIds.length > 0) {
+        // 3. Fetch the corresponding profiles for the user IDs
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url')
+          .in('id', userIds);
+
+        if (profilesError) {
+            console.error('Error fetching profiles for tasks', profilesError);
+            // This is not a fatal error, we can still display tasks without user info
+        } else if (profilesData) {
+            // Create a map of profiles by their ID for easy lookup
+            profilesById = profilesData.reduce((acc, profile) => {
+                acc[profile.id] = profile;
+                return acc;
+            }, {} as Record<string, Pick<User, 'name' | 'avatar_url'>>);
+        }
+    }
+    
+    // 4. Combine the tasks data with the profiles data
+    const combinedData = tasksData.map(task => ({
+      ...task,
+      userId: task.user_id,
+      profiles: profilesById[task.user_id] || null
+    })) as TaskWithProfile[];
+
+    setTasks(combinedData);
     setLoading(false);
   }, [supabase, toast]);
 
