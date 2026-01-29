@@ -65,7 +65,6 @@ export async function requestPasswordReset(formData: FormData) {
   const email = formData.get('email') as string
   const supabase = createClient()
 
-  // The redirectTo URL should be the one you add to your Supabase Redirect URLs list.
   const redirectTo = `${origin}/reset-password`
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
