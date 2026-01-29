@@ -157,10 +157,12 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithProfile[],
                       </div>
                     ) : 'Unassigned'}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' ? 'animate-pulse' : ''}>
-                      {task.status}
-                    </Badge>
+                  <TableCell>
+                    <div className="flex items-center justify-center">
+                        <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' ? 'animate-pulse' : ''}>
+                          {task.status}
+                        </Badge>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Select
@@ -168,7 +170,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithProfile[],
                       onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
                       disabled={isPending}
                     >
-                      <SelectTrigger className="w-[180px] h-9">
+                      <SelectTrigger className="w-[180px] h-9 ml-auto">
                         <SelectValue placeholder="Change status" />
                       </SelectTrigger>
                       <SelectContent>
