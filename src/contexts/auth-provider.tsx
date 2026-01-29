@@ -20,7 +20,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
@@ -47,11 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     user,
     loading,
-    signOut: async () => {
-      await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-    },
+    signOut: () => supabase.auth.signOut(),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
