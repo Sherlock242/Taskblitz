@@ -42,8 +42,7 @@ export default function DashboardPage() {
     // 1. Fetch tasks
     const { data: tasksData, error: tasksError } = await supabase
       .from('tasks')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
 
     if (tasksError) {
       console.error('Error fetching tasks', tasksError);
@@ -85,7 +84,6 @@ export default function DashboardPage() {
     // 4. Combine the tasks data with the profiles data
     const combinedData = tasksData.map(task => ({
       ...task,
-      userId: task.user_id,
       profiles: profilesById[task.user_id] || null
     })) as TaskWithProfile[];
 

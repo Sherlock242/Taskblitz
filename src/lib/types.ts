@@ -15,7 +15,8 @@ export type Template = {
 export type Task = {
   id: string;
   name: string;
-  templateId: string;
-  userId: string;
+  template_id: string;
+  user_id: string;
   status: 'To Do' | 'In Progress' | 'Done';
+  created_at: string;
 };
