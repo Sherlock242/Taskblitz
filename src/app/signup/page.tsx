@@ -1,42 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import type { User } from '@/lib/types';
 import { signup } from '@/app/auth/actions';
 
-export default function SignupPage({ searchParams }: { searchParams: { message: string } }) {
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-  const router = useRouter();
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setLoading(true);
-    const formData = new FormData(event.currentTarget);
-    const result = await signup(formData);
-
-    // `signup` action redirects, but we can check for a message in the URL
-    // This is a simplified way to handle post-action state.
-    const url = new URL(window.location.href);
-    url.searchParams.forEach((value, key) => url.searchParams.delete(key)); // clear params
-    
-    if (result?.searchParams.get('message')?.includes('Check email')) {
-         toast({ title: 'Signup Successful', description: "Please check your email to verify your account." });
-         router.push('/login');
-    } else if (result?.searchParams.get('message')) {
-        toast({ title: 'Signup Failed', description: result.searchParams.get('message') as string, variant: 'destructive' });
-    }
-    setLoading(false);
-  }
-
+export default function SignupPage() {
+  const searchParams = useSearchParams();
+  const message = searchParams.get('message');
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -89,9 +64,9 @@ export default function SignupPage({ searchParams }: { searchParams: { message: 
                 required
               />
             </div>
-            {searchParams?.message && (
+            {message && (
                  <div className="text-sm font-medium text-destructive p-2 bg-destructive/10 rounded-md border border-destructive/20">
-                    {searchParams.message}
+                    {message}
                 </div>
             )}
             <Button type="submit" className="w-full">
