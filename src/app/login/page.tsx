@@ -29,7 +29,8 @@ export default function LoginPage() {
       toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Login Successful', description: "Welcome back!" });
-      router.push('/dashboard');
+      // The redirect is now handled by the main app layout listening to auth changes.
+      // No router.push needed here.
     }
     setLoading(false);
   };

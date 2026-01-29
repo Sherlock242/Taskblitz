@@ -20,10 +20,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setLoading(false);
+    };
+    getSession();
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
       if (session?.user) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -34,18 +50,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null);
       }
-      setLoading(false);
-    });
+    }
+    fetchUserProfile();
+  }, [session])
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
   const value = {
     session,
     user,
-    loading,
+    loading: loading || (!!session && !user), // Remain in loading state until profile is also fetched
     signOut: () => supabase.auth.signOut(),
   };
 
