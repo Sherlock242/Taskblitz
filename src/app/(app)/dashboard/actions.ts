@@ -19,3 +19,31 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
   revalidatePath('/dashboard');
   return { error: null };
 }
+
+export async function deleteTask(taskId: string) {
+  const supabase = createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+      return { error: { message: 'You must be logged in to delete tasks.' } };
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+  if (profile?.role !== 'Admin') {
+      return { error: { message: 'Only admins can delete tasks.' } };
+  }
+
+  const { error } = await supabase
+    .from('tasks')
+    .delete()
+    .eq('id', taskId);
+
+  if (error) {
+    console.error('Error deleting task', error);
+    return { error: { message: `Failed to delete task: ${error.message}` } };
+  }
+
+  revalidatePath('/dashboard');
+  return { data: { message: 'Task deleted successfully.' } };
+}

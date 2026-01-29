@@ -4,6 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import type { User } from '@/lib/types';
 
 async function DashboardData() {
   const supabase = createClient();
@@ -40,7 +41,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
 
-  return <DashboardClient tasks={tasksData as TaskWithProfile[]} />;
+  return <DashboardClient tasks={tasksData as TaskWithProfile[]} userRole={profile.role} />;
 }
 
 

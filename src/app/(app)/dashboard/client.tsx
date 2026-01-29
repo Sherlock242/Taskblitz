@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { updateTaskStatus } from './actions';
+import { DeleteTaskDialog } from './delete-task-dialog';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -30,7 +31,7 @@ export type TaskWithProfile = Task & {
   profiles: Pick<User, 'name' | 'avatar_url'> | null;
 };
 
-export function DashboardClient({ tasks }: { tasks: TaskWithProfile[] }) {
+export function DashboardClient({ tasks, userRole }: { tasks: TaskWithProfile[], userRole: User['role'] }) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -55,9 +56,11 @@ export function DashboardClient({ tasks }: { tasks: TaskWithProfile[] }) {
                 <div className="text-center py-10 border-2 border-dashed rounded-lg">
                     <h3 className="text-lg font-semibold">No Tasks Yet</h3>
                     <p className="text-muted-foreground mt-2">Get started by assigning a template to a user.</p>
-                    <Button asChild className="mt-4">
-                        <Link href="/assign">Assign Tasks</Link>
-                    </Button>
+                    {userRole === 'Admin' && (
+                      <Button asChild className="mt-4">
+                          <Link href="/assign">Assign Tasks</Link>
+                      </Button>
+                    )}
                 </div>
             </CardContent>
         </Card>
@@ -75,16 +78,21 @@ export function DashboardClient({ tasks }: { tasks: TaskWithProfile[] }) {
           const user = task.profiles;
           return (
             <Card key={task.id}>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">{task.name}</CardTitle>
-                {user && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={user.avatar_url || undefined} />
-                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-muted-foreground">Assigned to {user.name}</span>
-                  </div>
+              <CardHeader className="pb-4 flex-row items-start justify-between">
+                <div>
+                  <CardTitle className="text-lg">{task.name}</CardTitle>
+                  {user && (
+                    <div className="flex items-center gap-2 pt-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={user.avatar_url || undefined} />
+                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm text-muted-foreground">Assigned to {user.name}</span>
+                    </div>
+                  )}
+                </div>
+                {userRole === 'Admin' && (
+                  <DeleteTaskDialog taskId={task.id} taskName={task.name} />
                 )}
               </CardHeader>
               <CardContent>
@@ -129,6 +137,7 @@ export function DashboardClient({ tasks }: { tasks: TaskWithProfile[] }) {
               <TableHead>Assigned To</TableHead>
               <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-right">Change Status</TableHead>
+              {userRole === 'Admin' && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -169,6 +178,11 @@ export function DashboardClient({ tasks }: { tasks: TaskWithProfile[] }) {
                       </SelectContent>
                     </Select>
                   </TableCell>
+                  {userRole === 'Admin' && (
+                    <TableCell className="text-right">
+                      <DeleteTaskDialog taskId={task.id} taskName={task.name} />
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
