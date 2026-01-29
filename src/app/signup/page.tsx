@@ -9,44 +9,34 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase-client';
 import type { User } from '@/lib/types';
+import { signup } from '@/app/auth/actions';
 
-export default function SignupPage() {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<User['role']>('Member');
+export default function SignupPage({ searchParams }: { searchParams: { message: string } }) {
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const { toast } = useToast();
+  const router = useRouter();
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setLoading(true);
+    const formData = new FormData(event.currentTarget);
+    const result = await signup(formData);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          role: role,
-          avatar_url: `https://picsum.photos/seed/${Math.random() * 1000}/80/80`
-        },
-      },
-    });
-
-    if (error) {
-       toast({ title: 'Signup Failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Signup Successful', description: "Please check your email to verify your account." });
-      // Don't redirect immediately, let user see the toast and verify email.
-      // Maybe redirect to a specific "check your email" page in a real app.
-      router.push('/login');
+    // `signup` action redirects, but we can check for a message in the URL
+    // This is a simplified way to handle post-action state.
+    const url = new URL(window.location.href);
+    url.searchParams.forEach((value, key) => url.searchParams.delete(key)); // clear params
+    
+    if (result?.searchParams.get('message')?.includes('Check email')) {
+         toast({ title: 'Signup Successful', description: "Please check your email to verify your account." });
+         router.push('/login');
+    } else if (result?.searchParams.get('message')) {
+        toast({ title: 'Signup Failed', description: result.searchParams.get('message') as string, variant: 'destructive' });
     }
     setLoading(false);
-  };
+  }
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -58,33 +48,29 @@ export default function SignupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignup} className="grid gap-4">
+          <form action={signup} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="full-name">Full name</Label>
               <Input 
                 id="full-name" 
+                name="full-name"
                 placeholder="John Doe" 
                 required 
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="m@example.com"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="role">Role</Label>
-              <Select onValueChange={(value: User['role']) => setRole(value)} defaultValue="Member" disabled={loading}>
+              <Select name="role" defaultValue="Member">
                 <SelectTrigger id="role">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -98,15 +84,18 @@ export default function SignupPage() {
               <Label htmlFor="password">Password</Label>
               <Input 
                 id="password" 
+                name="password"
                 type="password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)} 
-                disabled={loading}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account...' : 'Create an account'}
+            {searchParams?.message && (
+                 <div className="text-sm font-medium text-destructive p-2 bg-destructive/10 rounded-md border border-destructive/20">
+                    {searchParams.message}
+                </div>
+            )}
+            <Button type="submit" className="w-full">
+              Create an account
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">

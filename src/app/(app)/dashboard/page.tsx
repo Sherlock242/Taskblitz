@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase-client';
+import React, { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import type { Task, User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -34,8 +34,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const supabase = createClient();
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('tasks')
@@ -53,12 +54,11 @@ export default function DashboardPage() {
       setTasks(formattedTasks);
     }
     setLoading(false);
-  };
+  }, [supabase, toast]);
 
   useEffect(() => {
     fetchTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchTasks]);
 
   const handleStatusChange = async (taskId: string, newStatus: Task['status']) => {
     const originalTasks = [...tasks];

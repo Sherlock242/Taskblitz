@@ -1,54 +1,21 @@
-'use client';
-
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase-client';
-import { useAuth } from '@/contexts/auth-provider';
+import { login } from '@/app/auth/actions';
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const { toast } = useToast();
-  const { user } = useAuth();
+export default async function LoginPage({ searchParams }: { searchParams: { message: string } }) {
+  const supabase = createClient();
 
-  useEffect(() => {
-    // If the user object exists, it means they are logged in.
-    // Redirect them to the dashboard.
-    if (user) {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Login Successful', description: "Welcome back!" });
-      // The redirect is now handled by the useEffect hook watching for the user state change.
-    }
-    setLoading(false);
-  };
-  
-  // We don't render anything if the user is already logged in,
-  // as the useEffect above will trigger a redirect.
-  // This prevents a "flash" of the login form.
   if (user) {
-    return null;
+    return redirect('/dashboard');
   }
 
   return (
@@ -61,17 +28,15 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="grid gap-4">
+          <form action={login} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="m@example.com"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -86,15 +51,18 @@ export default function LoginPage() {
               </div>
               <Input 
                 id="password" 
+                name="password"
                 type="password" 
                 required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
+            {searchParams.message && (
+                <div className="text-sm font-medium text-destructive p-2 bg-destructive/10 rounded-md border border-destructive/20">
+                    {searchParams.message}
+                </div>
+            )}
+            <Button type="submit" className="w-full">
+              Login
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">

@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase-client';
-import { useAuth } from '@/contexts/auth-provider';
-import type { Template } from '@/lib/types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { Template, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -98,10 +97,11 @@ function AddTemplateDialog({ onAddTemplate }: { onAddTemplate: (template: Omit<T
 export default function TemplatesPage() {
     const [templates, setTemplates] = useState<Template[]>([]);
     const [loading, setLoading] = useState(true);
-    const { user } = useAuth();
+    const [user, setUser] = useState<User | null>(null);
     const { toast } = useToast();
+    const supabase = createClient();
     
-    const fetchTemplates = async () => {
+    const fetchTemplates = useCallback(async () => {
         setLoading(true);
         const { data, error } = await supabase
             .from('templates')
@@ -115,12 +115,25 @@ export default function TemplatesPage() {
             setTemplates(data as Template[]);
         }
         setLoading(false);
-    };
+    }, [supabase, toast]);
+
+    const fetchUser = useCallback(async () => {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+             const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', authUser.id)
+                .single();
+            setUser(profile as User | null);
+        }
+    }, [supabase]);
+
 
     useEffect(() => {
+        fetchUser();
         fetchTemplates();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchTemplates, fetchUser]);
     
     const handleAddTemplate = async (newTemplate: Omit<Template, 'id'>) => {
         const { data, error } = await supabase

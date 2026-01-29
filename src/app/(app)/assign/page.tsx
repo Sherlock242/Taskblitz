@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase-client';
+import { createClient } from '@/lib/supabase/client';
 import type { User, Template } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,7 @@ export default function AssignPage() {
     const [selectedUser, setSelectedUser] = useState<string>('');
     
     const { toast } = useToast();
+    const supabase = createClient();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -37,7 +38,7 @@ export default function AssignPage() {
             setLoading(false);
         };
         fetchData();
-    }, [toast]);
+    }, [toast, supabase]);
 
     const handleAssign = async () => {
         if (!selectedTemplate || !selectedUser) {
