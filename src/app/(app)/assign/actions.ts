@@ -28,12 +28,13 @@ export async function assignTasks(templateId: string, userId: string) {
     const template = templateRes.data;
     const user = userRes.data;
 
-    const newTasks = template.tasks.map(taskName => ({
+    const newTasks = template.tasks.map((taskName, index) => ({
         name: taskName,
         template_id: templateId,
         user_id: userId,
         status: 'To Do',
         assigned_by: adminUser.id,
+        position: index,
     }));
 
     const { error } = await supabase.from('tasks').insert(newTasks);

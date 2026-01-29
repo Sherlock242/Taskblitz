@@ -33,7 +33,9 @@ async function DashboardData() {
     query = query.eq('user_id', user.id);
   }
 
-  const { data: tasksData, error: tasksError } = await query.order('created_at', { ascending: true });
+  const { data: tasksData, error: tasksError } = await query
+    .order('created_at', { ascending: true })
+    .order('position', { ascending: true });
 
 
   if (tasksError) {

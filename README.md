@@ -91,7 +91,9 @@ CREATE TABLE public.tasks (
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     assigned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     status TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
+    position INTEGER
 );
 
 

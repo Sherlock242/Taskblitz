@@ -21,4 +21,6 @@ export type Task = {
   assigned_by: string | null;
   status: 'To Do' | 'In Progress' | 'Done';
   created_at: string;
+  updated_at: string | null;
+  position: number | null;
 };
