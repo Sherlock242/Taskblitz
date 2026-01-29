@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-export async function updateAvatar() {
+export async function updateAvatar(formData: FormData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -12,17 +12,44 @@ export async function updateAvatar() {
     return { error: { message: 'You must be logged in to update your avatar.' } };
   }
   
-  const newAvatarUrl = `https://picsum.photos/seed/${Math.random() * 1000}/200/200`;
+  const avatarFile = formData.get('avatar') as File;
+  if (!avatarFile || avatarFile.size === 0) {
+      return { error: { message: 'No file selected for upload.' } };
+  }
 
-  const { data, error } = await supabase
+  const fileExt = avatarFile.name.split('.').pop();
+  const filePath = `${user.id}/avatar.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, avatarFile, {
+      cacheControl: '3600',
+      upsert: true // This will overwrite the file if it already exists
+    });
+
+  if (uploadError) {
+    return { error: { message: `Failed to upload avatar: ${uploadError.message}` } };
+  }
+
+  // Get public URL for the uploaded file
+  const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+  if (!urlData.publicUrl) {
+    return { error: { message: 'Could not get public URL for avatar.' } };
+  }
+  
+  // A cache-busting query parameter is crucial because browsers will cache the old image.
+  const uniqueUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+
+  const { data, error: updateError } = await supabase
     .from('profiles')
-    .update({ avatar_url: newAvatarUrl })
+    .update({ avatar_url: uniqueUrl })
     .eq('id', user.id)
     .select()
     .single();
 
-  if (error) {
-    return { error: { message: `Failed to update avatar: ${error.message}` } };
+  if (updateError) {
+    return { error: { message: `Failed to update profile: ${updateError.message}` } };
   }
 
   revalidatePath('/profile');

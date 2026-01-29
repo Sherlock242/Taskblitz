@@ -152,6 +152,32 @@ $$;
 
 -- Grant execute permission on the function to authenticated users
 grant execute on function public.delete_own_user_account() to authenticated;
+
+
+-- 5. SET UP STORAGE (for avatar uploads)
+
+-- Create a bucket for 'avatars' with public access
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+-- Allow public read access to everyone
+CREATE POLICY "Avatar images are publicly accessible."
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'avatars' );
+
+-- Allow authenticated users to upload to their own folder in the avatars bucket
+CREATE POLICY "Users can upload their own avatar."
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK ( auth.uid()::text = (storage.foldername(name))[1] AND bucket_id = 'avatars' );
+
+-- Allow users to update their own avatar
+CREATE POLICY "Users can update their own avatar."
+ON storage.objects FOR UPDATE
+TO authenticated
+USING ( auth.uid()::text = (storage.foldername(name))[1] );
+
 ```
 
 ## How to Run the Application

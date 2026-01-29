@@ -27,14 +27,25 @@ export function ProfileClient({ user }: { user: User }) {
     const [isPasswordPending, startPasswordTransition] = useTransition();
     const [isDeletePending, startDeleteTransition] = useTransition();
     const passwordFormRef = useRef<HTMLFormElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleUpdateAvatar = () => {
+    const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
         startAvatarTransition(async () => {
-            const result = await updateAvatar();
+            const formData = new FormData();
+            formData.append('avatar', file);
+
+            const result = await updateAvatar(formData);
             if (result.error) {
-                toast({ title: 'Error', description: result.error.message, variant: 'destructive' });
+                toast({ title: 'Error uploading avatar', description: result.error.message, variant: 'destructive' });
             } else {
-                toast({ title: 'Avatar Updated!', description: 'Your new avatar has been set.' });
+                toast({ title: 'Avatar Updated!', description: 'Your new avatar has been uploaded.' });
+            }
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
             }
         });
     };
@@ -81,9 +92,25 @@ export function ProfileClient({ user }: { user: User }) {
                     </div>
                 </CardContent>
                 <CardFooter className="border-t px-6 py-4">
-                    <Button onClick={handleUpdateAvatar} disabled={isAvatarPending}>
-                        {isAvatarPending ? 'Generating...' : 'Generate New Avatar'}
-                    </Button>
+                    <form>
+                        <Input
+                            id="avatar-upload"
+                            name="avatar-upload"
+                            type="file"
+                            accept="image/png, image/jpeg"
+                            onChange={handleAvatarChange}
+                            className="hidden"
+                            ref={fileInputRef}
+                            disabled={isAvatarPending}
+                        />
+                        <Button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isAvatarPending}
+                        >
+                            {isAvatarPending ? 'Uploading...' : 'Upload New Avatar'}
+                        </Button>
+                    </form>
                 </CardFooter>
             </Card>
 
