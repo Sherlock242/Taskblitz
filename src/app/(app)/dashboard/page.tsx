@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { DashboardClient, type TaskWithProfile } from './client';
+import { DashboardClient, type TaskWithRelations } from './client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import React, { Suspense } from 'react';
@@ -27,13 +27,13 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load your profile.</p>;
   }
 
-  let query = supabase.from('tasks').select('*, profiles(name, avatar_url)');
+  let query = supabase.from('tasks').select('*, profiles(name, avatar_url), templates(name, description)');
 
   if (profile.role === 'Member') {
     query = query.eq('user_id', user.id);
   }
 
-  const { data: tasksData, error: tasksError } = await query;
+  const { data: tasksData, error: tasksError } = await query.order('created_at', { ascending: true });
 
 
   if (tasksError) {
@@ -41,7 +41,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
 
-  return <DashboardClient tasks={tasksData as TaskWithProfile[]} userRole={profile.role} />;
+  return <DashboardClient tasks={tasksData as TaskWithRelations[]} userRole={profile.role} />;
 }
 
 
