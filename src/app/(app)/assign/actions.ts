@@ -9,6 +9,12 @@ export async function assignTasks(templateId: string, userId: string) {
     }
 
     const supabase = createClient();
+    
+    const { data: { user: adminUser } } = await supabase.auth.getUser();
+
+    if (!adminUser) {
+        return { error: { message: 'You must be logged in to assign tasks.' } };
+    }
 
     const [templateRes, userRes] = await Promise.all([
         supabase.from('templates').select('name, tasks').eq('id', templateId).single(),
@@ -27,6 +33,7 @@ export async function assignTasks(templateId: string, userId: string) {
         template_id: templateId,
         user_id: userId,
         status: 'To Do',
+        assigned_by: adminUser.id,
     }));
 
     const { error } = await supabase.from('tasks').insert(newTasks);

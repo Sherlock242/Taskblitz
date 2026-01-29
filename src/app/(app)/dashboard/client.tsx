@@ -29,6 +29,7 @@ const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'ou
 
 export type TaskWithRelations = Task & {
   profiles: Pick<User, 'name' | 'avatar_url'> | null;
+  assigner: Pick<User, 'name' | 'avatar_url'> | null;
   templates: Pick<Template, 'name' | 'description'> | null;
 };
 
@@ -47,7 +48,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
   };
 
   const groupedByTemplate = useMemo(() => {
-    const groups: Record<string, { id: string; name: string; description: string; tasks: TaskWithRelations[] }> = {};
+    const groups: Record<string, { id: string; name: string; description: string; tasks: TaskWithRelations[], assigner: Pick<User, 'name' | 'avatar_url'> | null; }> = {};
     
     // Group tasks by template
     tasks.forEach(task => {
@@ -61,7 +62,8 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                 id: templateId,
                 name: templateName,
                 description: templateDescription,
-                tasks: []
+                tasks: [],
+                assigner: task.assigner,
             };
         }
         groups[templateId].tasks.push(task);
@@ -106,8 +108,24 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
         {groupedByTemplate.map(group => (
             <Card key={group.id} className="w-full">
                 <CardHeader>
-                    <CardTitle className="font-headline">{group.name}</CardTitle>
-                    {group.description && <CardDescription>{group.description}</CardDescription>}
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle className="font-headline">{group.name}</CardTitle>
+                            {group.description && <CardDescription>{group.description}</CardDescription>}
+                        </div>
+                        {group.assigner && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
+                                    <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col text-xs text-right">
+                                    <span>Assigned by</span>
+                                    <span className="font-medium text-foreground">{group.assigner.name}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 p-4 pt-0">
                     {group.tasks.map(task => {
@@ -168,8 +186,24 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
         {groupedByTemplate.map(group => (
             <Card key={group.id}>
                 <CardHeader>
-                    <CardTitle className="font-headline">{group.name}</CardTitle>
-                    {group.description && <CardDescription>{group.description}</CardDescription>}
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle className="font-headline">{group.name}</CardTitle>
+                            {group.description && <CardDescription>{group.description}</CardDescription>}
+                        </div>
+                        {group.assigner && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                 <Avatar className="h-8 w-8">
+                                    <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
+                                    <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col text-xs text-right">
+                                    <span>Assigned by</span>
+                                    <span className="font-medium text-foreground">{group.assigner.name}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Table>

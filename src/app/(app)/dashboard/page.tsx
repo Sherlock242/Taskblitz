@@ -27,7 +27,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load your profile.</p>;
   }
 
-  let query = supabase.from('tasks').select('*, profiles(name, avatar_url), templates(name, description)');
+  let query = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), templates(name, description)');
 
   if (profile.role === 'Member') {
     query = query.eq('user_id', user.id);
@@ -41,7 +41,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
 
-  return <DashboardClient tasks={tasksData as TaskWithRelations[]} userRole={profile.role} />;
+  return <DashboardClient tasks={tasksData as unknown as TaskWithRelations[]} userRole={profile.role} />;
 }
 
 
