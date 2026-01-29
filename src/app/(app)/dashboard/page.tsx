@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { Task, User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -39,55 +41,17 @@ export default function DashboardPage() {
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     
-    // 1. Fetch tasks
     const { data: tasksData, error: tasksError } = await supabase
       .from('tasks')
-      .select('*');
+      .select('*, profiles(name, avatar_url)');
 
     if (tasksError) {
       console.error('Error fetching tasks', tasksError);
       toast({ title: 'Error', description: 'Could not fetch tasks.', variant: 'destructive' });
-      setLoading(false);
-      return;
+      setTasks([]);
+    } else {
+      setTasks((tasksData as TaskWithProfile[]) || []);
     }
-    
-    if (!tasksData) {
-        setTasks([]);
-        setLoading(false);
-        return;
-    }
-
-    // 2. Get unique user IDs from the tasks
-    const userIds = [...new Set(tasksData.map(task => task.user_id).filter(Boolean))];
-
-    let profilesById: Record<string, Pick<User, 'name' | 'avatar_url'>> = {};
-
-    if (userIds.length > 0) {
-        // 3. Fetch the corresponding profiles for the user IDs
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, name, avatar_url')
-          .in('id', userIds);
-
-        if (profilesError) {
-            console.error('Error fetching profiles for tasks', profilesError);
-            // This is not a fatal error, we can still display tasks without user info
-        } else if (profilesData) {
-            // Create a map of profiles by their ID for easy lookup
-            profilesById = profilesData.reduce((acc, profile) => {
-                acc[profile.id] = profile;
-                return acc;
-            }, {} as Record<string, Pick<User, 'name' | 'avatar_url'>>);
-        }
-    }
-    
-    // 4. Combine the tasks data with the profiles data
-    const combinedData = tasksData.map(task => ({
-      ...task,
-      profiles: profilesById[task.user_id] || null
-    })) as TaskWithProfile[];
-
-    setTasks(combinedData);
     setLoading(false);
   }, [supabase, toast]);
 
@@ -129,6 +93,26 @@ export default function DashboardPage() {
           <Skeleton className="h-12 w-full" />
         </CardContent>
       </Card>
+    );
+  }
+  
+  if (tasks.length === 0) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">Task Dashboard</CardTitle>
+                <CardDescription>An overview of all tasks in the system.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="text-center py-10 border-2 border-dashed rounded-lg">
+                    <h3 className="text-lg font-semibold">No Tasks Yet</h3>
+                    <p className="text-muted-foreground mt-2">Get started by assigning a template to a user.</p>
+                    <Button asChild className="mt-4">
+                        <Link href="/assign">Assign Tasks</Link>
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
     );
   }
 
