@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
-import { templates as initialTemplates } from '@/lib/data';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase-client';
+import { useAuth } from '@/contexts/auth-provider';
 import type { Template } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { ListChecks, PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 function AddTemplateDialog({ onAddTemplate }: { onAddTemplate: (template: Omit<Template, 'id'>) => void }) {
     const [open, setOpen] = useState(false);
@@ -93,16 +96,44 @@ function AddTemplateDialog({ onAddTemplate }: { onAddTemplate: (template: Omit<T
 }
 
 export default function TemplatesPage() {
-    const [templates, setTemplates] = useState<Template[]>(initialTemplates);
+    const [templates, setTemplates] = useState<Template[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
     const { toast } = useToast();
     
-    const handleAddTemplate = (newTemplate: Omit<Template, 'id'>) => {
-        const templateToAdd: Template = {
-            ...newTemplate,
-            id: `template-${Date.now()}`
-        };
-        setTemplates(current => [...current, templateToAdd]);
-        toast({ title: 'Template Created', description: `The "${templateToAdd.name}" template has been saved.` });
+    const fetchTemplates = async () => {
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('templates')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching templates', error);
+            toast({ title: 'Error', description: 'Could not fetch templates.', variant: 'destructive' });
+        } else {
+            setTemplates(data as Template[]);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchTemplates();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    
+    const handleAddTemplate = async (newTemplate: Omit<Template, 'id'>) => {
+        const { data, error } = await supabase
+            .from('templates')
+            .insert([newTemplate])
+            .select();
+
+        if (error) {
+            toast({ title: 'Error creating template', description: error.message, variant: 'destructive' });
+        } else if (data) {
+            setTemplates(current => [data[0] as Template, ...current]);
+            toast({ title: 'Template Created', description: `The "${data[0].name}" template has been saved.` });
+        }
     };
     
     return (
@@ -112,30 +143,38 @@ export default function TemplatesPage() {
                     <h1 className="text-2xl font-bold tracking-tight font-headline">Task Templates</h1>
                     <p className="text-muted-foreground">Create and manage your reusable task lists.</p>
                 </div>
-                <AddTemplateDialog onAddTemplate={handleAddTemplate} />
+                {user?.role === 'Admin' && <AddTemplateDialog onAddTemplate={handleAddTemplate} />}
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {templates.map(template => (
-                    <Card key={template.id}>
-                        <CardHeader>
-                            <CardTitle className="font-headline">{template.name}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <ul className="space-y-2 text-sm text-muted-foreground">
-                                {template.tasks.map((task, index) => (
-                                    <li key={index} className="flex items-center gap-2">
-                                        <ListChecks className="h-4 w-4 text-primary" />
-                                        <span>{task}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </CardContent>
-                        <CardFooter>
-                            <p className="text-xs text-muted-foreground">{template.tasks.length} tasks</p>
-                        </CardFooter>
-                    </Card>
-                ))}
-            </div>
+            {loading ? (
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Card><CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader><CardContent><div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div></CardContent><CardFooter><Skeleton className="h-4 w-1/4" /></CardFooter></Card>
+                    <Card><CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader><CardContent><div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div></CardContent><CardFooter><Skeleton className="h-4 w-1/4" /></CardFooter></Card>
+                    <Card><CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader><CardContent><div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div></CardContent><CardFooter><Skeleton className="h-4 w-1/4" /></CardFooter></Card>
+                 </div>
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {templates.map(template => (
+                        <Card key={template.id}>
+                            <CardHeader>
+                                <CardTitle className="font-headline">{template.name}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <ul className="space-y-2 text-sm text-muted-foreground">
+                                    {template.tasks.map((task, index) => (
+                                        <li key={index} className="flex items-center gap-2">
+                                            <ListChecks className="h-4 w-4 text-primary" />
+                                            <span>{task}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </CardContent>
+                            <CardFooter>
+                                <p className="text-xs text-muted-foreground">{template.tasks.length} tasks</p>
+                            </CardFooter>
+                        </Card>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
