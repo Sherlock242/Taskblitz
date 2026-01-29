@@ -9,6 +9,7 @@ export type User = {
 export type Template = {
   id: string;
   name: string;
+  description: string;
   tasks: string[];
 };
 

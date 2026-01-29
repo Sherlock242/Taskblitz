@@ -10,11 +10,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { addTemplate, updateTemplate } from './actions';
 import type { Template } from '@/lib/types';
+import { Textarea } from '@/components/ui/textarea';
 
 export function AddTemplateDialog({ template, children }: { template?: Template, children?: React.ReactNode }) {
     const isEditMode = !!template;
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
     const [tasks, setTasks] = useState<string[]>(['']);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
@@ -23,9 +25,11 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
         if (open) {
             if (isEditMode && template) {
                 setName(template.name);
+                setDescription(template.description || '');
                 setTasks(template.tasks.length > 0 ? template.tasks : ['']);
             } else {
                 setName('');
+                setDescription('');
                 setTasks(['']);
             }
         }
@@ -58,8 +62,8 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
 
         startTransition(async () => {
             const result = isEditMode && template
-                ? await updateTemplate(template.id, name, filteredTasks)
-                : await addTemplate(name, filteredTasks);
+                ? await updateTemplate(template.id, name, description, filteredTasks)
+                : await addTemplate(name, description, filteredTasks);
 
             if (result.error) {
                 toast({
@@ -89,7 +93,7 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
             <DialogTrigger asChild>
                 {trigger}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="font-headline">{isEditMode ? 'Edit Template' : 'Create New Template'}</DialogTitle>
                     <DialogDescription>
@@ -100,6 +104,16 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
                     <div className="grid items-center gap-2">
                         <Label htmlFor="name">Template Name</Label>
                         <Input id="name" name="name" value={name} onChange={e => setName(e.target.value)} required />
+                    </div>
+                    <div className="grid items-center gap-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                            id="description"
+                            name="description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="A brief description for this template."
+                        />
                     </div>
                     <div className="grid items-center gap-2">
                         <Label>Tasks</Label>

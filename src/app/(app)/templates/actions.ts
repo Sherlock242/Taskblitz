@@ -3,14 +3,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-export async function addTemplate(name: string, tasks: string[]) {
+export async function addTemplate(name: string, description: string, tasks: string[]) {
   const supabase = createClient();
   
   if (!name || tasks.length === 0) {
     return { error: { message: 'A template must have a name and at least one task.' } };
   }
 
-  const newTemplate = { name, tasks };
+  const newTemplate = { name, description, tasks };
 
   const { data, error } = await supabase
     .from('templates')
@@ -27,7 +27,7 @@ export async function addTemplate(name: string, tasks: string[]) {
   return { data };
 }
 
-export async function updateTemplate(id: string, name: string, tasks: string[]) {
+export async function updateTemplate(id: string, name: string, description: string, tasks: string[]) {
   const supabase = createClient();
 
   if (!name || tasks.length === 0) {
@@ -36,7 +36,7 @@ export async function updateTemplate(id: string, name: string, tasks: string[]) 
 
   const { data, error } = await supabase
     .from('templates')
-    .update({ name, tasks })
+    .update({ name, description, tasks })
     .eq('id', id)
     .select()
     .single();

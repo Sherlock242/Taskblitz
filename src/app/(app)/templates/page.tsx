@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Template } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { ListChecks, Edit } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
@@ -36,6 +36,7 @@ async function TemplatesList() {
                 <Card key={template.id}>
                     <CardHeader>
                         <CardTitle className="font-headline">{template.name}</CardTitle>
+                        <CardDescription>{template.description}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-2 text-sm text-muted-foreground">
