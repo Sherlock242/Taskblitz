@@ -4,9 +4,9 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id)?.imageUrl || '';
 
 export const users: User[] = [
-  { id: 'user-1', name: 'Alice Johnson', email: 'alice@example.com', avatarUrl: findImage('user-avatar-1'), role: 'Admin' },
-  { id: 'user-2', name: 'Bob Williams', email: 'bob@example.com', avatarUrl: findImage('user-avatar-2'), role: 'Member' },
-  { id: 'user-3', name: 'Charlie Brown', email: 'charlie@example.com', avatarUrl: findImage('user-avatar-3'), role: 'Member' },
+  { id: 'user-1', name: 'Alice Johnson', email: 'alice@example.com', avatar_url: findImage('user-avatar-1'), role: 'Admin' },
+  { id: 'user-2', name: 'Bob Williams', email: 'bob@example.com', avatar_url: findImage('user-avatar-2'), role: 'Member' },
+  { id: 'user-3', name: 'Charlie Brown', email: 'charlie@example.com', avatar_url: findImage('user-avatar-3'), role: 'Member' },
 ];
 
 export const templates: Template[] = [

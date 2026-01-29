@@ -1,13 +1,16 @@
+'use client';
+
 import type { PropsWithChildren } from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-provider';
 import { LayoutDashboard, Users, ClipboardList, Send, Workflow, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle, SheetHeader, SheetDescription } from '@/components/ui/sheet';
-
-const adminAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-admin')?.imageUrl || '';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const NavLink = ({ href, icon: Icon, children }: PropsWithChildren<{ href: string; icon: React.ElementType }>) => (
   <Link href={href} className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary">
@@ -16,30 +19,72 @@ const NavLink = ({ href, icon: Icon, children }: PropsWithChildren<{ href: strin
   </Link>
 );
 
-const UserNav = () => (
-    <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                    <AvatarImage src={adminAvatar} alt="Admin" data-ai-hint="person face" />
-                    <AvatarFallback>AD</AvatarFallback>
-                </Avatar>
-            </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Admin</p>
-                    <p className="text-xs leading-none text-muted-foreground">admin@example.com</p>
-                </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Log out</DropdownMenuItem>
-        </DropdownMenuContent>
-    </DropdownMenu>
-);
+const UserNav = () => {
+    const { user, signOut } = useAuth();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        await signOut();
+        router.push('/login');
+    };
+
+    if (!user) {
+      return (
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+           <Avatar className="h-8 w-8">
+              <AvatarFallback>
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </AvatarFallback>
+           </Avatar>
+        </Button>
+      );
+    }
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.avatar_url || ''} alt={user.name || ''} data-ai-hint="person face" />
+                        <AvatarFallback>{user.name?.slice(0, 2).toUpperCase() || 'U'}</AvatarFallback>
+                    </Avatar>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{user.name}</p>
+                        <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+};
 
 export default function AppLayout({ children }: PropsWithChildren) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+          <div className="flex flex-col items-center gap-4">
+              <Workflow className="h-12 w-12 text-primary animate-pulse" />
+              <p className="text-muted-foreground">Loading your workspace...</p>
+          </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-card md:block">
@@ -71,7 +116,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
               <SheetHeader>
-                <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                <SheetTitle>Task Blitz</SheetTitle>
                 <SheetDescription className="sr-only">A list of navigation links for the app.</SheetDescription>
               </SheetHeader>
               <nav className="grid gap-2 text-lg font-medium">

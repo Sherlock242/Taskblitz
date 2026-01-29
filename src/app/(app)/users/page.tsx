@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-function AddUserDialog({ onAddUser }: { onAddUser: (user: Omit<User, 'id' | 'avatarUrl'>) => void }) {
+function AddUserDialog({ onAddUser }: { onAddUser: (user: Omit<User, 'id' | 'avatar_url'>) => void }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -79,11 +79,11 @@ export default function UsersPage() {
     const [users, setUsers] = useState<User[]>(initialUsers);
     const { toast } = useToast();
 
-    const handleAddUser = (newUser: Omit<User, 'id' | 'avatarUrl'>) => {
+    const handleAddUser = (newUser: Omit<User, 'id' | 'avatar_url'>) => {
         const userToAdd: User = {
             ...newUser,
             id: `user-${Date.now()}`,
-            avatarUrl: `https://picsum.photos/seed/${Math.random() * 1000}/40/40`,
+            avatar_url: `https://picsum.photos/seed/${Math.random() * 1000}/40/40`,
         };
         setUsers(currentUsers => [...currentUsers, userToAdd]);
         toast({ title: "User Created", description: `${userToAdd.name} has been added to the system.` });
@@ -113,7 +113,7 @@ export default function UsersPage() {
                                 <TableCell>
                                     <div className="flex items-center gap-3">
                                         <Avatar>
-                                            <AvatarImage src={user.avatarUrl} alt={user.name} />
+                                            <AvatarImage src={user.avatar_url} alt={user.name} />
                                             <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                                         </Avatar>
                                         <span className="font-medium">{user.name}</span>
