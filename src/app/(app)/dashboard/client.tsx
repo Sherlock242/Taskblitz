@@ -124,18 +124,6 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                             {group.description && <CardDescription>{group.description}</CardDescription>}
                         </div>
                         <div className="flex flex-col gap-4 items-end flex-shrink-0">
-                            {group.assignee && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
-                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex flex-col text-xs text-right">
-                                        <span>Assigned to</span>
-                                        <span className="font-medium text-foreground">{group.assignee.name}</span>
-                                    </div>
-                                </div>
-                            )}
                             {group.assigner && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Avatar className="h-8 w-8">
@@ -145,6 +133,18 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                     <div className="flex flex-col text-xs text-right">
                                         <span>Assigned by</span>
                                         <span className="font-medium text-foreground">{group.assigner.name}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {group.assignee && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
+                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col text-xs text-right">
+                                        <span>Assigned to</span>
+                                        <span className="font-medium text-foreground">{group.assignee.name}</span>
                                     </div>
                                 </div>
                             )}
@@ -204,6 +204,18 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                             {group.description && <CardDescription>{group.description}</CardDescription>}
                         </div>
                         <div className="flex items-center gap-6">
+                             {group.assigner && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
+                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col text-xs text-right">
+                                        <span>Assigned by</span>
+                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
+                                    </div>
+                                </div>
+                            )}
                             {group.assignee && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Avatar className="h-8 w-8">
@@ -213,18 +225,6 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                     <div className="flex flex-col text-xs text-right">
                                         <span>Assigned to</span>
                                         <span className="font-medium text-foreground">{group.assignee.name}</span>
-                                    </div>
-                                </div>
-                            )}
-                            {group.assigner && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
-                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex flex-col text-xs text-right">
-                                        <span>Assigned by</span>
-                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
                                     </div>
                                 </div>
                             )}
