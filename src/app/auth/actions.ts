@@ -47,9 +47,6 @@ export async function signup(formData: FormData) {
         return redirect(`/signup?message=${error.message}`)
     }
     
-    // For server-side actions, especially with email confirmation,
-    // we redirect to a page that informs the user.
-    // Supabase handles the actual email sending.
     if (data.user && !data.session) {
       return redirect('/login?message=Check your email to continue the sign-up process.');
     }
@@ -61,4 +58,46 @@ export async function logout() {
   const supabase = createClient()
   await supabase.auth.signOut()
   return redirect('/login')
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const origin = headers().get('origin')
+  const email = formData.get('email') as string
+  const supabase = createClient()
+
+  // The redirectTo URL should be the one you add to your Supabase Redirect URLs list.
+  const redirectTo = `${origin}/reset-password`
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  })
+
+  if (error) {
+    return redirect(`/forgot-password?error=${error.message}`)
+  }
+
+  return redirect('/forgot-password?message=Password reset link has been sent to your email.')
+}
+
+export async function resetPassword(formData: FormData) {
+  const password = formData.get('password') as string
+  const confirmPassword = formData.get('confirm-password') as string
+  const supabase = createClient()
+  
+  if (password !== confirmPassword) {
+      return redirect('/reset-password?error=Passwords do not match')
+  }
+  
+  if (password.length < 6) {
+      return redirect('/reset-password?error=Password must be at least 6 characters long')
+  }
+
+  const { error } = await supabase.auth.updateUser({ password })
+
+  if (error) {
+    return redirect(`/reset-password?error=${error.message}`)
+  }
+    
+  await supabase.auth.signOut()
+  return redirect('/login?message=Your password has been reset successfully. Please log in.')
 }
