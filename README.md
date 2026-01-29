@@ -145,4 +145,4 @@ Once you have completed the setup, you can start the development server:
 npm run dev
 ```
 
-The application will be available at [http://localhost:9002](http://localhost:9002).
+The application will be available at [https://taskblitsz.netlify.app/login](https://taskblitsz.netlify.app/login).
