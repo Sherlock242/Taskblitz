@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Template } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { ListChecks } from 'lucide-react';
+import { ListChecks, Edit } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
 import { AddTemplateDialog } from './dialog';
 import { redirect } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { DeleteTemplateDialog } from './delete-template-dialog';
 
 async function TemplatesList() {
     const supabase = createClient();
@@ -48,8 +50,17 @@ async function TemplatesList() {
                             )}
                         </ul>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex justify-between items-center">
                         <p className="text-xs text-muted-foreground">{template.tasks.length} tasks</p>
+                        <div className="flex items-center">
+                            <AddTemplateDialog template={template}>
+                                <Button variant="ghost" size="icon">
+                                    <Edit className="h-4 w-4" />
+                                    <span className="sr-only">Edit Template</span>
+                                </Button>
+                            </AddTemplateDialog>
+                            <DeleteTemplateDialog templateId={template.id} templateName={template.name} />
+                        </div>
                     </CardFooter>
                 </Card>
             ))}

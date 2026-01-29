@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -8,15 +8,29 @@ import { Label } from '@/components/ui/label';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { addTemplate } from './actions';
+import { addTemplate, updateTemplate } from './actions';
+import type { Template } from '@/lib/types';
 
-export function AddTemplateDialog() {
+export function AddTemplateDialog({ template, children }: { template?: Template, children?: React.ReactNode }) {
+    const isEditMode = !!template;
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [tasks, setTasks] = useState<string[]>(['']);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
+    useEffect(() => {
+        if (open) {
+            if (isEditMode && template) {
+                setName(template.name);
+                setTasks(template.tasks.length > 0 ? template.tasks : ['']);
+            } else {
+                setName('');
+                setTasks(['']);
+            }
+        }
+    }, [open, template, isEditMode]);
+    
     const handleTaskChange = (index: number, value: string) => {
         const newTasks = [...tasks];
         newTasks[index] = value;
@@ -43,7 +57,10 @@ export function AddTemplateDialog() {
         }
 
         startTransition(async () => {
-            const result = await addTemplate(name, filteredTasks);
+            const result = isEditMode && template
+                ? await updateTemplate(template.id, name, filteredTasks)
+                : await addTemplate(name, filteredTasks);
+
             if (result.error) {
                 toast({
                     title: 'Error',
@@ -52,34 +69,32 @@ export function AddTemplateDialog() {
                 });
             } else if (result.data) {
                 toast({
-                    title: 'Template Created',
-                    description: `The "${result.data.name}" template has been saved.`
+                    title: isEditMode ? 'Template Updated' : 'Template Created',
+                    description: `The "${(result.data as Template).name}" template has been saved.`
                 });
                 setOpen(false);
-                setName('');
-                setTasks(['']);
             }
         });
     };
     
+    const trigger = children || (
+        <Button size="sm" className="h-8 gap-1">
+            <PlusCircle className="h-3.5 w-3.5" />
+            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Create Template</span>
+        </Button>
+    );
+
     return (
-        <Dialog open={open} onOpenChange={(isOpen) => {
-            setOpen(isOpen);
-            if (!isOpen) {
-                setName('');
-                setTasks(['']);
-            }
-        }}>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button size="sm" className="h-8 gap-1">
-                    <PlusCircle className="h-3.5 w-3.5" />
-                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Create Template</span>
-                </Button>
+                {trigger}
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="font-headline">Create New Template</DialogTitle>
-                    <DialogDescription>Define a reusable set of tasks.</DialogDescription>
+                    <DialogTitle className="font-headline">{isEditMode ? 'Edit Template' : 'Create New Template'}</DialogTitle>
+                    <DialogDescription>
+                        {isEditMode ? `Editing the "${template?.name}" template.` : 'Define a reusable set of tasks.'}
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid items-center gap-2">
@@ -107,7 +122,7 @@ export function AddTemplateDialog() {
                 </div>
                 <DialogFooter>
                     <Button type="submit" onClick={handleSubmit} disabled={isPending}>
-                        {isPending ? 'Creating...' : 'Create Template'}
+                        {isPending ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Template')}
                     </Button>
                 </DialogFooter>
             </DialogContent>
