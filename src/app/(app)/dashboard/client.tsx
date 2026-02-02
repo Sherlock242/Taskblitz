@@ -56,7 +56,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     });
   };
 
-  const groupedByTemplate = useMemo(() => {
+  const groupedByWorkflow = useMemo(() => {
     const groups: Record<string, { 
         id: string; 
         name: string; 
@@ -65,30 +65,41 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         assigner: Pick<User, 'name' | 'avatar_url'> | null;
         assignee: Pick<User, 'name' | 'avatar_url'> | null;
     }> = {};
-    
+
+    // First, group all tasks by their workflow instance ID
+    const tasksByWorkflow: Record<string, TaskWithRelations[]> = {};
     tasks.forEach(task => {
-        const templateId = task.template_id || 'unassigned';
-        const primaryAssigneeId = task.primary_assignee_id;
-        
-        if (!primaryAssigneeId) return;
-
-        const groupKey = `${templateId}-${primaryAssigneeId}`;
-
-        const templateName = task.templates?.name || 'General Tasks';
-        const templateDescription = task.templates?.description || 'Tasks not associated with a template.';
-
-        if (!groups[groupKey]) {
-            groups[groupKey] = {
-                id: groupKey,
-                name: templateName,
-                description: templateDescription,
-                tasks: [],
-                assigner: task.assigner,
-                assignee: task.primary_assignee,
-            };
+        if (!task.workflow_instance_id) return;
+        if (!tasksByWorkflow[task.workflow_instance_id]) {
+            tasksByWorkflow[task.workflow_instance_id] = [];
         }
-        groups[groupKey].tasks.push(task);
+        tasksByWorkflow[task.workflow_instance_id].push(task);
     });
+
+    // Now, create the final group structures
+    for (const workflowId in tasksByWorkflow) {
+        const workflowTasks = tasksByWorkflow[workflowId];
+        // Sort tasks by position to reliably find the first one
+        workflowTasks.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        
+        const firstTask = workflowTasks[0];
+        if (!firstTask) continue;
+
+        const templateName = firstTask.templates?.name || 'General Tasks';
+        const templateDescription = firstTask.templates?.description || 'Tasks not associated with a template.';
+
+        // The "assignee" for the whole workflow is the primary assignee of the first task.
+        const workflowAssignee = firstTask.primary_assignee;
+
+        groups[workflowId] = {
+            id: workflowId,
+            name: templateName,
+            description: templateDescription,
+            tasks: workflowTasks,
+            assigner: firstTask.assigner,
+            assignee: workflowAssignee,
+        };
+    }
 
     return Object.values(groups);
   }, [tasks]);
@@ -155,7 +166,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     return (
       <div className="flex flex-col gap-6">
         <PageHeader />
-        {groupedByTemplate.map(group => (
+        {groupedByWorkflow.map(group => (
             <Card key={group.id} className="w-full">
                 <CardHeader>
                     <div className="flex justify-between items-start gap-4">
@@ -258,7 +269,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   return (
      <div className="flex flex-col gap-6">
         <PageHeader />
-        {groupedByTemplate.map(group => (
+        {groupedByWorkflow.map(group => (
             <Card key={group.id}>
                 <CardHeader>
                     <div className="flex justify-between items-start">
@@ -371,9 +382,3 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
-
-    
-
-    
-
-    

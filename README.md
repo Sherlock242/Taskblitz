@@ -99,6 +99,7 @@ CREATE TABLE public.templates (
 -- Create a table for individual tasks
 CREATE TABLE public.tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_instance_id UUID NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
     deadline TIMESTAMPTZ,

@@ -21,6 +21,7 @@ export type Template = {
 
 export type Task = {
   id:string;
+  workflow_instance_id: string;
   name: string;
   description: string | null;
   deadline: string | null;

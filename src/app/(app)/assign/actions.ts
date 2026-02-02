@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { TemplateTask } from '@/lib/types';
+import { randomUUID } from 'crypto';
 
 export async function assignTasks(templateId: string) {
     if (!templateId) {
@@ -33,6 +34,8 @@ export async function assignTasks(templateId: string) {
         return { error: { message: 'The selected template has no tasks.' } };
     }
 
+    const workflowInstanceId = randomUUID();
+
     const newTasks = templateTasks.map((task, index) => ({
         name: task.name,
         template_id: templateId,
@@ -41,6 +44,7 @@ export async function assignTasks(templateId: string) {
         status: 'Assigned',
         assigned_by: adminUser.id,
         position: index,
+        workflow_instance_id: workflowInstanceId,
     }));
 
     const { error } = await supabase.from('tasks').insert(newTasks);
