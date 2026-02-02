@@ -227,21 +227,29 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                 <CardContent>
                                     <div className="flex justify-between items-center">
                                     <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
-                                        {task.status}
+                                        {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
                                     </Badge>
-                                    <Select
-                                        onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                        disabled={isPending || !canUpdate || !active}
-                                    >
-                                        <SelectTrigger className="w-[140px] h-9">
-                                          <SelectValue placeholder="Action" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {nextStatuses.map(status => (
-                                            <SelectItem key={status} value={status}>{status}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                    </Select>
+                                    {canUpdate && active ? (
+                                        <Select
+                                            onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
+                                            disabled={isPending}
+                                        >
+                                            <SelectTrigger className="w-[140px] h-9">
+                                              <SelectValue placeholder="Action" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {nextStatuses.map(status => (
+                                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <div className="w-[140px] h-9 flex items-center justify-end">
+                                            <span className="text-sm text-muted-foreground pr-2">
+                                                {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : '--'}
+                                            </span>
+                                        </div>
+                                    )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -319,25 +327,31 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                         <TableCell>
                                             <div className="flex items-center justify-center">
                                                 <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
-                                                {task.status}
+                                                {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
                                                 </Badge>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex justify-center">
-                                            <Select
-                                                onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                                disabled={isPending || !canUpdate || !active}
-                                            >
-                                                <SelectTrigger className="w-[180px] h-9">
-                                                <SelectValue placeholder="Select an action" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  {nextStatuses.map(status => (
-                                                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                                                  ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <div className="flex justify-center items-center h-9">
+                                            {canUpdate && active ? (
+                                                <Select
+                                                    onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
+                                                    disabled={isPending}
+                                                >
+                                                    <SelectTrigger className="w-[180px]">
+                                                    <SelectValue placeholder="Select an action" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      {nextStatuses.map(status => (
+                                                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                                                      ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">
+                                                    {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : '--'}
+                                                </span>
+                                            )}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -362,3 +376,5 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
+
+    
