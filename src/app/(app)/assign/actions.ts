@@ -35,12 +35,17 @@ export async function assignTasks(templateId: string) {
     }
 
     const workflowInstanceId = randomUUID();
+    const primaryAssigneeForWorkflow = templateTasks[0]?.user_id;
+
+    if (!primaryAssigneeForWorkflow) {
+        return { error: { message: 'The first task in the template must have a user assigned.' } };
+    }
 
     const newTasks = templateTasks.map((task, index) => ({
         name: task.name,
         template_id: templateId,
         user_id: task.user_id,
-        primary_assignee_id: task.user_id,
+        primary_assignee_id: primaryAssigneeForWorkflow,
         status: 'Assigned',
         assigned_by: adminUser.id,
         position: index,
