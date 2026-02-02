@@ -163,6 +163,7 @@ DROP POLICY IF EXISTS "Users can view their assigned or submitted tasks." ON pub
 DROP POLICY IF EXISTS "Admins can view all tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Users can insert tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Users can update their own tasks, Admins can update any." ON public.tasks;
+DROP POLICY IF EXISTS "Users and Admins can update tasks based on workflow role." ON public.tasks;
 DROP POLICY IF EXISTS "Admins can delete tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Admins can manage all comments." ON public.comments;
 DROP POLICY IF EXISTS "Members can view comments on their assigned or submitted tasks." ON public.comments;
@@ -186,7 +187,18 @@ CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING (
 CREATE POLICY "Users can view their assigned or submitted tasks." ON public.tasks FOR SELECT USING (auth.uid() = user_id OR auth.uid() = primary_assignee_id);
 CREATE POLICY "Admins can view all tasks." ON public.tasks FOR SELECT USING ((select role from profiles where id = auth.uid()) = 'Admin');
 CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own tasks, Admins can update any." ON public.tasks FOR UPDATE USING (auth.uid() = user_id OR auth.uid() = primary_assignee_id OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin') WITH CHECK (true);
+CREATE POLICY "Users and Admins can update tasks based on workflow role." ON public.tasks
+FOR UPDATE
+USING (
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' OR
+    auth.uid() = user_id OR auth.uid() = primary_assignee_id
+)
+WITH CHECK (
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' OR
+    auth.uid() = primary_assignee_id OR
+    user_id = primary_assignee_id OR
+    auth.uid() = user_id
+);
 CREATE POLICY "Admins can delete tasks." ON public.tasks FOR DELETE USING ((select role from profiles where id = auth.uid()) = 'Admin');
 
 -- Create policies for 'comments'
