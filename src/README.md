@@ -163,6 +163,8 @@ DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
 DROP POLICY IF EXISTS "Admins can update any profile." ON public.profiles;
 DROP POLICY IF EXISTS "Templates are viewable by authenticated users." ON public.templates;
 DROP POLICY IF EXISTS "Admins can manage templates." ON public.templates;
+
+-- Drop all old policies for tasks to ensure a clean slate
 DROP POLICY IF EXISTS "Users can view their assigned or submitted tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Admins can view all tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Users can view their own assigned or reviewable tasks." ON public.tasks;
@@ -171,6 +173,8 @@ DROP POLICY IF EXISTS "Users can update their own tasks, Admins can update any."
 DROP POLICY IF EXISTS "Users and Admins can update tasks based on workflow role." ON public.tasks;
 DROP POLICY IF EXISTS "Users involved in a task can update it." ON public.tasks;
 DROP POLICY IF EXISTS "Admins can delete tasks." ON public.tasks;
+
+-- Drop all old policies for comments
 DROP POLICY IF EXISTS "Admins can manage all comments." ON public.comments;
 DROP POLICY IF EXISTS "Members can view comments on their assigned or submitted tasks." ON public.comments;
 DROP POLICY IF EXISTS "Members can create comments on their assigned or submitted tasks." ON public.comments;
@@ -190,8 +194,15 @@ CREATE POLICY "Templates are viewable by authenticated users." ON public.templat
 CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING ( (select role from profiles where id = auth.uid()) = 'Admin' );
 
 -- Create policies for 'tasks'
-CREATE POLICY "Users can view their own assigned or reviewable tasks." ON public.tasks FOR SELECT USING (auth.uid() = user_id OR (auth.uid() = reviewer_id AND status = 'Submitted for Review'));
-CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (true);
+-- THIS IS THE ONLY SELECT POLICY FOR TASKS. It ensures users (including Admins) can only see tasks assigned to them or tasks they need to review.
+CREATE POLICY "Users can view their own assigned or reviewable tasks." ON public.tasks
+FOR SELECT
+TO authenticated
+USING (
+    auth.uid() = user_id OR
+    (auth.uid() = reviewer_id AND status = 'Submitted for Review')
+);
+CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Users involved in a task can update it." ON public.tasks
 FOR UPDATE
 USING (
