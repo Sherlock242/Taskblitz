@@ -344,7 +344,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                   <Select
                                                       onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
                                                       disabled={isPending}
-                                                      value={task.status}
                                                   >
                                                       <SelectTrigger className="w-[180px]">
                                                         <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : displayStatus} />
@@ -427,6 +426,3 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
-
-    
-    
