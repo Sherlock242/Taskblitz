@@ -4,6 +4,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { Task, Comment } from '@/lib/types';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export async function updateTaskStatus(taskId: string, newStatus: Task['status']) {
   const supabase = createClient();
@@ -40,7 +41,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     const { data: allTasksInWorkflow } = await supabase
       .from('tasks')
       .select('id, position, user_id')
-      .eq('template_id', task.template_id!)
+      .eq('workflow_instance_id', task.workflow_instance_id)
       .order('position', { ascending: true });
 
     if (!allTasksInWorkflow) {
@@ -72,18 +73,18 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
   }
   else if (newStatus === 'Approved' && task.status === 'Submitted for Review' && isReviewer) {
     // --- Sequential Task Logic ---
-    const { data: allTasksInTemplate } = await supabase
+    const { data: allTasksInWorkflow } = await supabase
       .from('tasks')
       .select('id, position')
-      .eq('template_id', task.template_id!)
+      .eq('workflow_instance_id', task.workflow_instance_id)
       .order('position', { ascending: true });
 
-    if (!allTasksInTemplate) {
+    if (!allTasksInWorkflow) {
       return { error: { message: 'Could not find other tasks in this template.' }};
     }
 
-    const currentTaskIndex = allTasksInTemplate.findIndex(t => t.id === task.id);
-    const nextTask = allTasksInTemplate[currentTaskIndex + 1];
+    const currentTaskIndex = allTasksInWorkflow.findIndex(t => t.id === task.id);
+    const nextTask = allTasksInWorkflow[currentTaskIndex + 1];
 
     if (nextTask) {
       // It's not the last task, so mark as Approved and return ownership.
@@ -101,11 +102,23 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: `Invalid status transition from "${task.status}" to "${newStatus}".` } };
   }
   
-  const { error } = await supabase
+  // --- Use Admin client to bypass RLS for the update ---
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+
+  const { error } = await supabaseAdmin
     .from('tasks')
     .update(updatePayload)
-    .eq('id', taskId)
-    .select(''); // Do not return the updated row, as RLS may prevent it.
+    .eq('id', taskId);
+
 
   if (error) {
     console.error('Error updating task status', error);
