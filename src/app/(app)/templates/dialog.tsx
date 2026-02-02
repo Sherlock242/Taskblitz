@@ -119,7 +119,7 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                         />
                     </div>
                     <div className="grid items-center gap-2">
-                        <Label>Tasks (in sequential order)</Label>
+                        <Label>Tasks</Label>
 
                         <div className="flex items-center gap-2 pr-4 text-xs font-medium text-muted-foreground">
                             <div className="w-10 shrink-0 text-center">Task Order</div>
