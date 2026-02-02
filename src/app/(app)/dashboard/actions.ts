@@ -89,7 +89,8 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
   const { error } = await supabase
     .from('tasks')
     .update(updatePayload)
-    .eq('id', taskId);
+    .eq('id', taskId)
+    .select(''); // Do not return the updated row, as RLS may prevent it.
 
   if (error) {
     console.error('Error updating task status', error);
