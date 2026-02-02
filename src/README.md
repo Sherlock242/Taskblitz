@@ -67,10 +67,13 @@ You need to run a SQL script in your Supabase project to create the necessary ta
 -- Back up any important data before running this script.
 
 -- Drop existing tables in reverse order of creation to handle dependencies
-DROP TABLE IF EXISTS public.comments;
-DROP TABLE IF EXISTS public.tasks;
-DROP TABLE IF EXISTS public.templates;
-DROP TABLE IF EXISTS public.profiles;
+DROP TABLE IF EXISTS public.comments CASCADE;
+DROP TABLE IF EXISTS public.tasks CASCADE;
+DROP TABLE IF EXISTS public.templates CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
+-- Drop old enum type if it exists
+DROP TYPE IF EXISTS public.task_status CASCADE;
 
 -- 1. CREATE TABLES
 
@@ -149,6 +152,24 @@ ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 
+-- Drop old policies before creating new ones
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update any profile." ON public.profiles;
+DROP POLICY IF EXISTS "Templates are viewable by authenticated users." ON public.templates;
+DROP POLICY IF EXISTS "Admins can manage templates." ON public.templates;
+DROP POLICY IF EXISTS "Users can view their assigned or submitted tasks." ON public.tasks;
+DROP POLICY IF EXISTS "Admins can view all tasks." ON public.tasks;
+DROP POLICY IF EXISTS "Users can insert tasks." ON public.tasks;
+DROP POLICY IF EXISTS "Users can update their own tasks, Admins can update any." ON public.tasks;
+DROP POLICY IF EXISTS "Admins can delete tasks." ON public.tasks;
+DROP POLICY IF EXISTS "Admins can manage all comments." ON public.comments;
+DROP POLICY IF EXISTS "Members can view comments on their assigned or submitted tasks." ON public.comments;
+DROP POLICY IF EXISTS "Members can create comments on their assigned or submitted tasks." ON public.comments;
+DROP POLICY IF EXISTS "Members can update their own comments." ON public.comments;
+DROP POLICY IF EXISTS "Members can delete their own comments." ON public.comments;
+
 -- Create policies for 'profiles'
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
@@ -216,6 +237,12 @@ grant execute on function public.delete_own_user_account() to authenticated;
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', TRUE)
 ON CONFLICT (id) DO NOTHING;
+
+-- Drop old policies before creating new ones
+DROP POLICY IF EXISTS "Avatar images are publicly accessible." ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload their own avatar." ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own avatar." ON storage.objects;
+
 
 -- Allow public read access to everyone
 CREATE POLICY "Avatar images are publicly accessible."
