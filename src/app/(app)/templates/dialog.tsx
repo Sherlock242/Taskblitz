@@ -100,7 +100,7 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                 <DialogHeader>
                     <DialogTitle className="font-headline">{isEditMode ? 'Edit Template' : 'Create New Template'}</DialogTitle>
                     <DialogDescription>
-                        {isEditMode ? `Editing the "${template?.name}" template.` : 'Define a reusable and sequential set of tasks.'}
+                        {isEditMode ? `Editing the "${template?.name}" template.` : 'Define a reusable set of tasks.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -121,7 +121,7 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                     <div className="grid items-center gap-2">
                         <Label>Tasks</Label>
 
-                        <div className="flex items-center gap-2 pr-4 text-xs font-medium text-muted-foreground">
+                        <div className="flex items-center gap-2 pr-4 text-xs font-bold text-muted-foreground">
                             <div className="w-10 shrink-0 text-center">Task Order</div>
                             <div className="flex-1">Task Name</div>
                             <div className="w-[180px] shrink-0">Role Responsible</div>
