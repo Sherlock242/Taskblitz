@@ -71,16 +71,10 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     const nextTask = allTasksInTemplate[currentTaskIndex + 1];
 
     if (nextTask) {
-      // It's not the last task, so mark as Approved and activate the next one
+      // It's not the last task, so mark as Approved and return ownership.
+      // The UI will handle enabling the next task for the primary assignee.
       updatePayload.status = 'Approved';
       updatePayload.user_id = task.primary_assignee_id; // Return ownership to primary assignee
-      
-      // This is a no-op since the next task is already 'Assigned',
-      // but is kept for clarity on how sequential tasks would be activated.
-      await supabase
-        .from('tasks')
-        .update({ status: 'Assigned', user_id: task.primary_assignee_id })
-        .eq('id', nextTask.id);
 
     } else {
       // This is the last task, so mark it as Completed
