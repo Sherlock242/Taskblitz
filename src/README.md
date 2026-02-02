@@ -50,7 +50,10 @@ Create a new file named `.env.local` in the root directory of the project. Copy 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
 ```
+
+You can find your `Project URL` and `anon` public key in your Supabase project's **API settings**. The `SUPABASE_SERVICE_ROLE_KEY` is the `service_role` secret, also found in the API settings under the "Project API keys" section. **This key must be kept secret.**
 
 ### 4. Set Up the Database Schema
 
