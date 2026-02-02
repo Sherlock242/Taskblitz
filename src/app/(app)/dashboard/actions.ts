@@ -12,11 +12,9 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: 'You must be logged in to update tasks.' } };
   }
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUser.id).single();
-
   const { data: task, error: taskError } = await supabase
     .from('tasks')
-    .select('user_id, primary_assignee_id, status')
+    .select('*')
     .eq('id', taskId)
     .single();
 
@@ -24,55 +22,74 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: `Task not found: ${taskError?.message}` } };
   }
 
-  // Ensure the user changing the status is the one the task is assigned to OR is an admin
-  if (profile?.role !== 'Admin' && currentUser.id !== task.user_id) {
-      return { error: { message: 'You can only update tasks assigned to you.'}};
-  }
-
   let updatePayload: Partial<Task> = {
-    status: newStatus,
     updated_at: new Date().toISOString(),
   };
 
-  // --- Peer Review Handoff Logic ---
+  const isPrimaryAssignee = currentUser.id === task.primary_assignee_id;
+  const isReviewer = !isPrimaryAssignee && currentUser.id === task.user_id;
 
-  // Case 1: Primary assignee completes the task -> send to a peer for review
-  if (
-    newStatus === 'Done' &&
-    task.status !== 'Needs Review' && // Prevent loops
-    currentUser.id === task.primary_assignee_id
-  ) {
-    // Find another 'Member' to review the task.
+  // --- State Machine Logic ---
+
+  if (newStatus === 'In Progress' && (task.status === 'Assigned' || task.status === 'Changes Requested') && isPrimaryAssignee) {
+    updatePayload.status = 'In Progress';
+  }
+  else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee) {
     const { data: peerReviewer, error: peerError } = await supabase
       .from('profiles')
       .select('id')
       .eq('role', 'Member')
-      .neq('id', currentUser.id) // Exclude the current user
+      .neq('id', currentUser.id)
       .limit(1)
       .single();
     
-    if (peerReviewer && !peerError) {
-      // A peer was found, so send it for review.
-      updatePayload.status = 'Needs Review';
-      updatePayload.user_id = peerReviewer.id;
+    if (peerError || !peerReviewer) {
+      return { error: { message: 'Could not find a peer to review this task. Approving automatically.' } };
     }
-    // If no peer is found, the status will just be updated to 'Done'.
+
+    updatePayload.status = 'Submitted for Review';
+    updatePayload.user_id = peerReviewer.id;
   }
-  // Case 2: Reviewer requests changes -> send back to original assignee
-  else if (
-    (newStatus === 'To Do' || newStatus === 'In Progress') &&
-    task.status === 'Needs Review' &&
-    task.primary_assignee_id
-  ) {
-    updatePayload.user_id = task.primary_assignee_id; // Reassign back
+  else if (newStatus === 'Changes Requested' && task.status === 'Submitted for Review' && isReviewer) {
+    updatePayload.status = 'Changes Requested';
+    updatePayload.user_id = task.primary_assignee_id; // Reassign back to original assignee
   }
-  // Case 3: Reviewer gives final approval -> task is marked 'Done'
-  else if (
-    newStatus === 'Done' &&
-    task.status === 'Needs Review'
-  ) {
-    // The payload already has status: 'Done'. The task remains assigned to the reviewer,
-    // marking them as the final approver.
+  else if (newStatus === 'Approved' && task.status === 'Submitted for Review' && isReviewer) {
+    // --- Sequential Task Logic ---
+    const { data: allTasksInTemplate } = await supabase
+      .from('tasks')
+      .select('id, position')
+      .eq('template_id', task.template_id)
+      .eq('primary_assignee_id', task.primary_assignee_id)
+      .order('position', { ascending: true });
+
+    if (!allTasksInTemplate) {
+      return { error: { message: 'Could not find other tasks in this template.' }};
+    }
+
+    const currentTaskIndex = allTasksInTemplate.findIndex(t => t.id === task.id);
+    const nextTask = allTasksInTemplate[currentTaskIndex + 1];
+
+    if (nextTask) {
+      // It's not the last task, so mark as Approved and activate the next one
+      updatePayload.status = 'Approved';
+      updatePayload.user_id = task.primary_assignee_id; // Return ownership to primary assignee
+      
+      // This is a no-op since the next task is already 'Assigned',
+      // but is kept for clarity on how sequential tasks would be activated.
+      await supabase
+        .from('tasks')
+        .update({ status: 'Assigned', user_id: task.primary_assignee_id })
+        .eq('id', nextTask.id);
+
+    } else {
+      // This is the last task, so mark it as Completed
+      updatePayload.status = 'Completed';
+      updatePayload.user_id = task.primary_assignee_id;
+    }
+  }
+  else {
+    return { error: { message: `Invalid status transition from "${task.status}" to "${newStatus}".` } };
   }
   
   const { error } = await supabase

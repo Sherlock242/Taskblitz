@@ -14,7 +14,7 @@ export type Template = {
 };
 
 export type Task = {
-  id: string;
+  id:string;
   name: string;
   description: string | null;
   deadline: string | null;
@@ -22,7 +22,7 @@ export type Task = {
   user_id: string;
   assigned_by: string | null;
   primary_assignee_id: string | null;
-  status: 'To Do' | 'In Progress' | 'Done' | 'Needs Review';
+  status: 'Assigned' | 'In Progress' | 'Submitted for Review' | 'Changes Requested' | 'Approved' | 'Completed';
   created_at: string;
   updated_at: string | null;
   position: number | null;

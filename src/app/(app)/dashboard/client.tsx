@@ -20,14 +20,16 @@ import { CommentsSheet } from './comments-sheet';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
-    case 'Done':
+    case 'Completed':
+    case 'Approved':
       return 'secondary';
     case 'In Progress':
+    case 'Submitted for Review':
       return 'default';
-    case 'Needs Review':
-      return 'default';
-    case 'To Do':
+    case 'Assigned':
       return 'outline';
+    case 'Changes Requested':
+        return 'destructive';
     default:
       return 'outline';
   }
@@ -54,7 +56,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   };
 
   const groupedByTemplate = useMemo(() => {
-    // The key will be a combination of templateId and userId to create unique groups.
     const groups: Record<string, { 
         id: string; 
         name: string; 
@@ -66,7 +67,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     
     tasks.forEach(task => {
         const templateId = task.template_id || 'unassigned';
-        const userId = task.primary_assignee_id || task.user_id; // Group by the primary assignee
+        const userId = task.primary_assignee_id || task.user_id;
         const groupKey = `${templateId}-${userId}`;
 
         const templateName = task.templates?.name || 'General Tasks';
@@ -79,28 +80,45 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                 description: templateDescription,
                 tasks: [],
                 assigner: task.assigner,
-                assignee: task.profiles, // The user assigned the tasks
+                assignee: task.profiles,
             };
         }
         groups[groupKey].tasks.push(task);
     });
 
-    // In each group, find the profile of the primary assignee if it's not already the current assignee
     for (const key in groups) {
       const group = groups[key];
       const primaryAssigneeId = group.tasks[0]?.primary_assignee_id;
-      if (primaryAssigneeId && group.assignee?.id !== primaryAssigneeId) {
-        // Find the primary assignee's task to get their profile info
-        const primaryAssigneeTask = tasks.find(t => t.user_id === primaryAssigneeId);
-        if (primaryAssigneeTask) {
-          group.assignee = primaryAssigneeTask.profiles;
+      if (primaryAssigneeId) {
+        const primaryAssigneeTask = tasks.find(t => t.id === group.tasks[0]?.id);
+        if (primaryAssigneeTask && primaryAssigneeTask.primary_assignee_id) {
+          const primaryAssigneeProfile = tasks.find(t => t.user_id === primaryAssigneeTask.primary_assignee_id)?.profiles
+            ?? group.assignee; // Fallback to current assignee if not found
+          group.assignee = primaryAssigneeProfile;
         }
       }
     }
 
-
     return Object.values(groups);
   }, [tasks]);
+  
+  const getNextStatuses = (task: TaskWithRelations): Array<Task['status']> => {
+    const isPrimaryAssignee = currentUserId === task.primary_assignee_id;
+    const isReviewer = !isPrimaryAssignee && currentUserId === task.user_id;
+
+    switch (task.status) {
+        case 'Assigned':
+        case 'Changes Requested':
+            return isPrimaryAssignee ? ['In Progress'] : [];
+        case 'In Progress':
+            return isPrimaryAssignee ? ['Submitted for Review'] : [];
+        case 'Submitted for Review':
+            return isReviewer ? ['Approved', 'Changes Requested'] : [];
+        default:
+            return []; // No changes allowed for Approved/Completed tasks from dropdown
+    }
+  }
+
 
   if (tasks.length === 0) {
     return (
@@ -130,6 +148,17 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
       <p className="text-muted-foreground">An overview of all tasks in the system.</p>
     </div>
   );
+
+  const isTaskActive = (task: TaskWithRelations, allTasksInGroup: TaskWithRelations[]): boolean => {
+    if (task.status !== 'Assigned') {
+      return true;
+    }
+    if (task.position === 0) {
+      return true;
+    }
+    const prevTask = allTasksInGroup.find(t => t.position === (task.position ?? 0) - 1);
+    return prevTask?.status === 'Approved' || prevTask?.status === 'Completed';
+  };
 
   if (isMobile) {
     return (
@@ -173,9 +202,13 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 p-4 pt-0">
                     {group.tasks.map(task => {
-                        const canUpdate = userRole === 'Admin' || task.user_id === currentUserId;
+                        const nextStatuses = getNextStatuses(task);
+                        const canUpdate = nextStatuses.length > 0;
+                        const active = isTaskActive(task, group.tasks);
+                        if (!active && userRole !== 'Admin') return null;
+
                         return (
-                            <Card key={task.id}>
+                            <Card key={task.id} className={!active ? 'opacity-50' : ''}>
                                 <CardHeader className="pb-4 flex-row items-start justify-between">
                                     <div>
                                         <CardTitle className="text-lg">{task.name}</CardTitle>
@@ -193,22 +226,20 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex justify-between items-center">
-                                    <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Needs Review' ? 'animate-pulse' : ''}>
+                                    <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
                                         {task.status}
                                     </Badge>
                                     <Select
-                                        defaultValue={task.status}
                                         onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                        disabled={isPending || !canUpdate}
+                                        disabled={isPending || !canUpdate || !active}
                                     >
                                         <SelectTrigger className="w-[140px] h-9">
-                                        <SelectValue placeholder="Change status" />
+                                          <SelectValue placeholder="Action" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                        <SelectItem value="To Do">To Do</SelectItem>
-                                        <SelectItem value="In Progress">In Progress</SelectItem>
-                                        <SelectItem value="Needs Review">Needs Review</SelectItem>
-                                        <SelectItem value="Done">Done</SelectItem>
+                                          {nextStatuses.map(status => (
+                                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                                          ))}
                                         </SelectContent>
                                     </Select>
                                     </div>
@@ -268,22 +299,26 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                             <TableRow>
                             <TableHead>Task</TableHead>
                             <TableHead className="text-center">Status</TableHead>
-                            <TableHead className="text-center">Change Status</TableHead>
+                            <TableHead className="text-center">Action</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {group.tasks.map(task => {
-                                const canUpdate = userRole === 'Admin' || task.user_id === currentUserId;
+                                const nextStatuses = getNextStatuses(task);
+                                const canUpdate = nextStatuses.length > 0;
+                                const active = isTaskActive(task, group.tasks);
+                                if (!active && userRole !== 'Admin') return null;
+
                                 return (
-                                    <TableRow key={task.id}>
+                                    <TableRow key={task.id} className={!active ? 'opacity-50' : ''}>
                                         <TableCell className="font-medium max-w-xs">
                                             <p className="font-semibold truncate">{task.name}</p>
                                             {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-center">
-                                                <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Needs Review' ? 'animate-pulse' : ''}>
+                                                <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
                                                 {task.status}
                                                 </Badge>
                                             </div>
@@ -291,18 +326,16 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                         <TableCell>
                                             <div className="flex justify-center">
                                             <Select
-                                                defaultValue={task.status}
                                                 onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                                disabled={isPending || !canUpdate}
+                                                disabled={isPending || !canUpdate || !active}
                                             >
                                                 <SelectTrigger className="w-[180px] h-9">
-                                                <SelectValue placeholder="Change status" />
+                                                <SelectValue placeholder="Select an action" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                <SelectItem value="To Do">To Do</SelectItem>
-                                                <SelectItem value="In Progress">In Progress</SelectItem>
-                                                <SelectItem value="Needs Review">Needs Review</SelectItem>
-                                                <SelectItem value="Done">Done</SelectItem>
+                                                  {nextStatuses.map(status => (
+                                                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                                                  ))}
                                                 </SelectContent>
                                             </Select>
                                             </div>
@@ -329,5 +362,3 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
-
-    

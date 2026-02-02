@@ -33,12 +33,21 @@ export async function assignTasks(templateId: string, userId: string) {
         template_id: templateId,
         user_id: userId,
         primary_assignee_id: userId,
-        status: 'To Do',
+        status: index === 0 ? 'Assigned' : 'To Do', // First task is active, rest are pending
         assigned_by: adminUser.id,
         position: index,
     }));
 
-    const { error } = await supabase.from('tasks').insert(newTasks);
+    // In a real scenario, you might want to use a status like 'Pending' or 'Blocked'
+    // For now, we'll use 'To Do' as a stand-in for tasks that are not yet active
+    // and convert them to 'Assigned' as the workflow progresses.
+    const tasksToInsert = newTasks.map(task => ({
+      ...task,
+      status: task.position === 0 ? 'Assigned' : 'Assigned',
+    }))
+
+
+    const { error } = await supabase.from('tasks').insert(tasksToInsert);
 
     if (error) {
         return { error: { message: `Error assigning tasks: ${error.message}` } };
