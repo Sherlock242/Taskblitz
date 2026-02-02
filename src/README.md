@@ -169,6 +169,7 @@ DROP POLICY IF EXISTS "Members can create comments on their assigned or submitte
 DROP POLICY IF EXISTS "Members can update their own comments." ON public.comments;
 DROP POLICY IF EXISTS "Members can delete their own comments." ON public.comments;
 
+
 -- Create policies for 'profiles'
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
@@ -184,7 +185,7 @@ CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING (
 CREATE POLICY "Users can view their assigned or submitted tasks." ON public.tasks FOR SELECT USING (auth.uid() = user_id OR auth.uid() = primary_assignee_id);
 CREATE POLICY "Admins can view all tasks." ON public.tasks FOR SELECT USING ((select role from profiles where id = auth.uid()) = 'Admin');
 CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own tasks, Admins can update any." ON public.tasks FOR UPDATE USING (auth.uid() = user_id OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin') WITH CHECK (true);
+CREATE POLICY "Users can update their own tasks, Admins can update any." ON public.tasks FOR UPDATE USING (auth.uid() = user_id OR auth.uid() = primary_assignee_id OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin') WITH CHECK (true);
 CREATE POLICY "Admins can delete tasks." ON public.tasks FOR DELETE USING ((select role from profiles where id = auth.uid()) = 'Admin');
 
 -- Create policies for 'comments'
@@ -241,7 +242,6 @@ ON CONFLICT (id) DO NOTHING;
 DROP POLICY IF EXISTS "Avatar images are publicly accessible." ON storage.objects;
 DROP POLICY IF EXISTS "Users can upload their own avatar." ON storage.objects;
 DROP POLICY IF EXISTS "Users can update their own avatar." ON storage.objects;
-
 
 -- Allow public read access to everyone
 CREATE POLICY "Avatar images are publicly accessible."
