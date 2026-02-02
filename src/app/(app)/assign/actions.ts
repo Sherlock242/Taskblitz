@@ -38,18 +38,29 @@ export async function assignTasks(templateId: string, reviewerId: string) {
     }
 
     const workflowInstanceId = randomUUID();
+    const startDate = new Date();
 
-    const newTasks = templateTasks.map((task, index) => ({
-        name: task.name,
-        template_id: templateId,
-        user_id: templateTasks[0].user_id, // The user_id of the first task's assignee becomes the workflow owner
-        primary_assignee_id: task.user_id, // Each task is assigned to the user defined in the template
-        reviewer_id: reviewerId,
-        status: index === 0 ? 'Assigned' : 'Pending',
-        assigned_by: adminUser.id,
-        position: index,
-        workflow_instance_id: workflowInstanceId,
-    }));
+    const newTasks = templateTasks.map((task, index) => {
+        let deadline: string | null = null;
+        if (task.deadline_days && task.deadline_days > 0) {
+            const deadlineDate = new Date(startDate);
+            deadlineDate.setDate(deadlineDate.getDate() + task.deadline_days);
+            deadline = deadlineDate.toISOString();
+        }
+
+        return {
+            name: task.name,
+            template_id: templateId,
+            user_id: templateTasks[0].user_id, // The user_id of the first task's assignee becomes the workflow owner
+            primary_assignee_id: task.user_id, // Each task is assigned to the user defined in the template
+            reviewer_id: reviewerId,
+            status: index === 0 ? 'Assigned' : 'Pending',
+            assigned_by: adminUser.id,
+            position: index,
+            workflow_instance_id: workflowInstanceId,
+            deadline: deadline,
+        };
+    });
 
     const { error } = await supabase.from('tasks').insert(newTasks);
 

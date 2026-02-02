@@ -10,6 +10,7 @@ export type TemplateTask = {
   name: string;
   role: string;
   user_id: string;
+  deadline_days?: number | null;
 };
 
 export type Template = {

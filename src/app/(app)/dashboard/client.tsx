@@ -17,6 +17,7 @@ import { DeleteTaskDialog } from './delete-task-dialog';
 import { Edit, MessageSquare } from 'lucide-react';
 import { EditTaskDialog } from './edit-task-dialog';
 import { CommentsSheet } from './comments-sheet';
+import { formatDistanceToNow } from 'date-fns';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -219,6 +220,11 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                       <div>
                                           <CardTitle className="text-lg">{task.name}</CardTitle>
                                           {task.description && <CardDescription>{task.description}</CardDescription>}
+                                           {task.deadline && (
+                                                <p className="text-sm text-muted-foreground pt-1">
+                                                    Due {formatDistanceToNow(new Date(task.deadline), { addSuffix: true })}
+                                                </p>
+                                            )}
                                       </div>
                                       <div className="flex items-center">
                                           <CommentsSheet task={task} userRole={userRole} />
@@ -329,6 +335,11 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                           <TableCell className="font-medium max-w-xs">
                                               <p className="font-semibold truncate">{task.name}</p>
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
+                                              {task.deadline && (
+                                                <p className="text-xs text-muted-foreground truncate">
+                                                    Due {formatDistanceToNow(new Date(task.deadline), { addSuffix: true })}
+                                                </p>
+                                               )}
                                           </TableCell>
                                           <TableCell className="text-center text-xs">
                                               {task.primary_assignee?.name || 'N/A'}

@@ -13,14 +13,14 @@ import type { Template, User, TemplateTask } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type TaskItem = { name: string; role: string; user_id: string };
+type TaskItem = { name: string; role: string; user_id: string; deadline_days: string };
 
 export function AddTemplateDialog({ template, children, users }: { template?: Template, children?: React.ReactNode, users: Pick<User, 'id' | 'name'>[] }) {
     const isEditMode = !!template;
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [tasks, setTasks] = useState<TaskItem[]>([{ name: '', role: '', user_id: '' }]);
+    const [tasks, setTasks] = useState<TaskItem[]>([{ name: '', role: '', user_id: '', deadline_days: '' }]);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
@@ -29,24 +29,29 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
             if (isEditMode && template) {
                 setName(template.name);
                 setDescription(template.description || '');
-                // Ensure tasks have the 'role' property, providing a default if it's missing from old data
-                const templateTasks = template.tasks.map(t => ({...t, role: (t as any).role || ''}));
-                setTasks(templateTasks.length > 0 ? templateTasks : [{ name: '', role: '', user_id: '' }]);
+                // Ensure tasks have the 'role' and 'deadline_days' property, providing a default if it's missing from old data
+                const templateTasks = template.tasks.map(t => ({
+                    name: t.name,
+                    role: (t as any).role || '',
+                    user_id: t.user_id,
+                    deadline_days: t.deadline_days?.toString() || ''
+                }));
+                setTasks(templateTasks.length > 0 ? templateTasks : [{ name: '', role: '', user_id: '', deadline_days: '' }]);
             } else {
                 setName('');
                 setDescription('');
-                setTasks([{ name: '', role: '', user_id: '' }]);
+                setTasks([{ name: '', role: '', user_id: '', deadline_days: '' }]);
             }
         }
     }, [open, template, isEditMode]);
     
-    const handleTaskChange = (index: number, field: 'name' | 'role' | 'user_id', value: string) => {
+    const handleTaskChange = (index: number, field: keyof TaskItem, value: string) => {
         const newTasks = [...tasks];
         newTasks[index] = { ...newTasks[index], [field]: value };
         setTasks(newTasks);
     };
 
-    const addTask = () => setTasks([...tasks, { name: '', role: '', user_id: '' }]);
+    const addTask = () => setTasks([...tasks, { name: '', role: '', user_id: '', deadline_days: '' }]);
     
     const removeTask = (index: number) => {
         if (tasks.length > 1) {
@@ -55,7 +60,16 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
     };
     
     const handleSubmit = async () => {
-        const filteredTasks = tasks.map(t => ({ name: t.name.trim(), role: t.role.trim(), user_id: t.user_id })).filter(t => t.name && t.user_id);
+        const filteredTasks = tasks.map(t => {
+            const deadline = parseInt(t.deadline_days, 10);
+            return {
+                name: t.name.trim(),
+                role: t.role.trim(),
+                user_id: t.user_id,
+                deadline_days: !isNaN(deadline) && deadline > 0 ? deadline : null,
+            }
+        }).filter(t => t.name && t.user_id);
+        
         if (!name || filteredTasks.length === 0) {
              toast({
                 title: 'Validation Error',
@@ -98,7 +112,7 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
             <DialogTrigger asChild>
                 {trigger}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle className="font-headline">{isEditMode ? 'Edit Template' : 'Create New Template'}</DialogTitle>
                     <DialogDescription>
@@ -124,9 +138,10 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                         <Label>Tasks</Label>
 
                         <div className="flex items-center gap-2 pr-4 text-xs font-bold text-muted-foreground">
-                            <div className="w-10 shrink-0 text-center">Task Order</div>
+                            <div className="w-10 shrink-0 text-center">Order</div>
                             <div className="flex-1">Task Name</div>
-                            <div className="w-[320px] shrink-0">Role Responsible</div>
+                            <div className="w-[320px] shrink-0">Role Responsible & Assignee</div>
+                            <div className="w-28 shrink-0">Deadline (days)</div>
                             <div className="w-10 shrink-0"></div> {/* Spacer for delete icon */}
                         </div>
 
@@ -156,6 +171,14 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                                                 </Select>
                                             </div>
                                         </div>
+                                         <Input
+                                            type="number"
+                                            value={task.deadline_days}
+                                            onChange={e => handleTaskChange(index, 'deadline_days', e.target.value)}
+                                            placeholder="e.g. 7"
+                                            className="w-28 shrink-0"
+                                            min="0"
+                                        />
                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)} disabled={tasks.length <= 1}>
                                             <Trash2 className="h-4 w-4 text-muted-foreground" />
                                         </Button>
