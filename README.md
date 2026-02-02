@@ -168,6 +168,7 @@ DROP POLICY IF EXISTS "Admins can manage templates." ON public.templates;
 DROP POLICY IF EXISTS "Users can view their assigned or submitted tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Admins can view all tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Users can view their own assigned or reviewable tasks." ON public.tasks;
+DROP POLICY IF EXISTS "Users can view tasks where they are involved." ON public.tasks;
 DROP POLICY IF EXISTS "Users can insert tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Users can update their own tasks, Admins can update any." ON public.tasks;
 DROP POLICY IF EXISTS "Users and Admins can update tasks based on workflow role." ON public.tasks;
@@ -219,7 +220,7 @@ CREATE POLICY "Members can view comments on their assigned or submitted tasks." 
 FOR SELECT
 TO authenticated
 USING (
-    task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid() OR primary_assignee_id = auth.uid())
+    task_id IN (SELECT id FROM public.tasks WHERE primary_assignee_id = auth.uid() OR (reviewer_id = auth.uid() AND status IN ('Submitted for Review', 'Changes Requested', 'Approved', 'Completed')))
 );
 
 CREATE POLICY "Members can create comments on their assigned or submitted tasks." ON public.comments
@@ -227,7 +228,7 @@ FOR INSERT
 TO authenticated
 WITH CHECK (
     user_id = auth.uid() AND
-    task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid() OR primary_assignee_id = auth.uid())
+    task_id IN (SELECT id FROM public.tasks WHERE primary_assignee_id = auth.uid() OR (reviewer_id = auth.uid() AND status IN ('Submitted for Review', 'Changes Requested', 'Approved', 'Completed')))
 );
 
 CREATE POLICY "Members can update their own comments." ON public.comments FOR UPDATE
@@ -294,5 +295,3 @@ npm run dev
 ```
 
 The application will be available at [http://localhost:9002](http://localhost:9002).
-
-    
