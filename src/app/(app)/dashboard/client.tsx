@@ -235,7 +235,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                             disabled={isPending}
                                         >
                                             <SelectTrigger className="w-[140px] h-9">
-                                              <SelectValue placeholder="To Do" />
+                                              <SelectValue placeholder={task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status} />
                                             </SelectTrigger>
                                             <SelectContent>
                                               {nextStatuses.map(status => (
@@ -339,7 +339,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                     disabled={isPending}
                                                 >
                                                     <SelectTrigger className="w-[180px]">
-                                                    <SelectValue placeholder="To Do" />
+                                                    <SelectValue placeholder={task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status} />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                       {nextStatuses.map(status => (
@@ -376,6 +376,8 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
+
+    
 
     
 
