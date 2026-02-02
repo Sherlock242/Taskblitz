@@ -127,13 +127,12 @@ CREATE TABLE public.comments (
 -- Drop trigger if it exists, it will be recreated
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- Function to create a profile for a new user.
--- Using "create or replace" ensures the script can be re-run without errors.
+-- Function to create a profile for a new user
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (id, name, email, avatar_url, role)
-  values (new.id, new.raw_user_meta_data->>'full_name', new.email, new.raw_user_meta_data->>'avatar_url', 'Member');
+  values (new.id, new.raw_user_meta_data->>'full_name', new.email, new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'role');
   return new;
 end;
 $$ language plpgsql security definer;

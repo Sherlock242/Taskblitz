@@ -28,7 +28,7 @@ export async function signup(formData: FormData) {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const fullName = formData.get('full-name') as string;
-    const role = 'Member'; // All new signups are Members
+    const role = formData.get('role') as string;
 
     const supabase = createClient()
 

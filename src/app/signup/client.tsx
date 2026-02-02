@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { signup } from '@/app/auth/actions';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 export function SignupForm() {
     const router = useRouter();
@@ -68,6 +69,18 @@ export function SignupForm() {
                 minLength={6}
                 disabled={isPending}
               />
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Select name="role" defaultValue="Member" required disabled={isPending}>
+                    <SelectTrigger id="role">
+                        <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Member">Member</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? 'Creating account...' : 'Create an account'}
