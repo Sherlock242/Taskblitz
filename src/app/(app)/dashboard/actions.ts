@@ -87,15 +87,12 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     const nextTask = allTasksInWorkflow[currentTaskIndex + 1];
 
     if (nextTask) {
-      // It's not the last task, so mark as Approved and return ownership.
-      // The UI will handle enabling the next task for the primary assignee.
+      // It's not the last task, so just mark it as Approved.
+      // The UI will handle enabling the next task for its assigned user.
       updatePayload.status = 'Approved';
-      updatePayload.user_id = task.primary_assignee_id; // Return ownership to primary assignee
-
     } else {
       // This is the last task, so mark it as Completed
       updatePayload.status = 'Completed';
-      updatePayload.user_id = task.primary_assignee_id;
     }
   }
   else {
