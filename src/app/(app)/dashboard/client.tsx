@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useTransition, useMemo } from 'react';
@@ -38,7 +39,7 @@ export type TaskWithRelations = Task & {
   templates: Pick<Template, 'name' | 'description'> | null;
 };
 
-export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[], userRole: User['role'] }) {
+export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: TaskWithRelations[], userRole: User['role'], currentUserId: string }) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -65,7 +66,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
     
     tasks.forEach(task => {
         const templateId = task.template_id || 'unassigned';
-        const userId = task.user_id;
+        const userId = task.primary_assignee_id || task.user_id; // Group by the primary assignee
         const groupKey = `${templateId}-${userId}`;
 
         const templateName = task.templates?.name || 'General Tasks';
@@ -83,6 +84,20 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
         }
         groups[groupKey].tasks.push(task);
     });
+
+    // In each group, find the profile of the primary assignee if it's not already the current assignee
+    for (const key in groups) {
+      const group = groups[key];
+      const primaryAssigneeId = group.tasks[0]?.primary_assignee_id;
+      if (primaryAssigneeId && group.assignee?.id !== primaryAssigneeId) {
+        // Find the primary assignee's task to get their profile info
+        const primaryAssigneeTask = tasks.find(t => t.user_id === primaryAssigneeId);
+        if (primaryAssigneeTask) {
+          group.assignee = primaryAssigneeTask.profiles;
+        }
+      }
+    }
+
 
     return Object.values(groups);
   }, [tasks]);
@@ -158,6 +173,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 p-4 pt-0">
                     {group.tasks.map(task => {
+                        const canUpdate = userRole === 'Admin' || task.user_id === currentUserId;
                         return (
                             <Card key={task.id}>
                                 <CardHeader className="pb-4 flex-row items-start justify-between">
@@ -183,7 +199,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                     <Select
                                         defaultValue={task.status}
                                         onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                        disabled={isPending}
+                                        disabled={isPending || !canUpdate}
                                     >
                                         <SelectTrigger className="w-[140px] h-9">
                                         <SelectValue placeholder="Change status" />
@@ -258,6 +274,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                         </TableHeader>
                         <TableBody>
                             {group.tasks.map(task => {
+                                const canUpdate = userRole === 'Admin' || task.user_id === currentUserId;
                                 return (
                                     <TableRow key={task.id}>
                                         <TableCell className="font-medium max-w-xs">
@@ -276,7 +293,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                             <Select
                                                 defaultValue={task.status}
                                                 onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                                disabled={isPending}
+                                                disabled={isPending || !canUpdate}
                                             >
                                                 <SelectTrigger className="w-[180px] h-9">
                                                 <SelectValue placeholder="Change status" />
@@ -312,3 +329,5 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
      </div>
   );
 }
+
+    

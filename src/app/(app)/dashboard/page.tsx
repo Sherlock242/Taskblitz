@@ -1,3 +1,4 @@
+
 import { createClient } from '@/lib/supabase/server';
 import { DashboardClient, type TaskWithRelations } from './client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,7 +46,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
 
-  return <DashboardClient tasks={tasksData as unknown as TaskWithRelations[]} userRole={profile.role} />;
+  return <DashboardClient tasks={tasksData as unknown as TaskWithRelations[]} userRole={profile.role} currentUserId={user.id} />;
 }
 
 
@@ -73,3 +74,5 @@ function DashboardSkeleton() {
     </Card>
   )
 }
+
+    
