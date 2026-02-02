@@ -43,9 +43,6 @@ export async function assignTasks(templateId: string) {
         position: index,
     }));
 
-    // The first task is set to 'Assigned', subsequent tasks are also 'Assigned'
-    // but the UI logic will prevent them from being actioned until the previous one is approved.
-
     const { error } = await supabase.from('tasks').insert(newTasks);
 
     if (error) {
