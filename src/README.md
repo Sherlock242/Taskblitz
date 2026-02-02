@@ -168,6 +168,7 @@ DROP POLICY IF EXISTS "Admins can manage templates." ON public.templates;
 DROP POLICY IF EXISTS "Users can view their assigned or submitted tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Admins can view all tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Users can view their own assigned or reviewable tasks." ON public.tasks;
+DROP POLICY IF EXISTS "Users can view tasks where they are involved." ON public.tasks;
 DROP POLICY IF EXISTS "Users can insert tasks." ON public.tasks;
 DROP POLICY IF EXISTS "Users can update their own tasks, Admins can update any." ON public.tasks;
 DROP POLICY IF EXISTS "Users and Admins can update tasks based on workflow role." ON public.tasks;
@@ -195,7 +196,7 @@ CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING (
 
 -- Create policies for 'tasks'
 CREATE POLICY "Admins can view all tasks." ON public.tasks FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin');
-CREATE POLICY "Users can view their own assigned or reviewable tasks." ON public.tasks FOR SELECT USING (primary_assignee_id = auth.uid() OR (auth.uid() = reviewer_id AND status = 'Submitted for Review'));
+CREATE POLICY "Users can view tasks where they are involved." ON public.tasks FOR SELECT USING (primary_assignee_id = auth.uid() OR reviewer_id = auth.uid());
 
 CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Users involved in a task can update it." ON public.tasks
