@@ -62,6 +62,16 @@ You need to run a SQL script in your Supabase project to create the necessary ta
 4.  Click **RUN** to execute the script.
 
 ```sql
+-- DANGER: This script deletes existing tables before recreating them.
+-- You will lose all data in the 'comments', 'tasks', 'templates', and 'profiles' tables.
+-- Back up any important data before running this script.
+
+-- Drop existing tables in reverse order of creation to handle dependencies
+DROP TABLE IF EXISTS public.comments;
+DROP TABLE IF EXISTS public.tasks;
+DROP TABLE IF EXISTS public.templates;
+DROP TABLE IF EXISTS public.profiles;
+
 -- 1. CREATE TABLES
 
 -- Create a table for public user profiles
