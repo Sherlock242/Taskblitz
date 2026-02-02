@@ -8,6 +8,7 @@ export type User = {
 
 export type TemplateTask = {
   name: string;
+  role: string;
   user_id: string;
 };
 

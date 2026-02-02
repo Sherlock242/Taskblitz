@@ -46,7 +46,15 @@ async function TemplatesList({ users }: { users: Pick<User, 'id' | 'name'>[] }) 
                                 <li key={index} className="flex items-center gap-2">
                                     <ListChecks className="h-4 w-4 text-primary" />
                                     <span className="flex-1 truncate">{task.name}</span>
-                                    <span className="text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-full">{userMap.get(task.user_id) || 'Unknown User'}</span>
+                                    {task.role ? (
+                                        <span className="text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-full">
+                                            {task.role} ({userMap.get(task.user_id) || 'Unknown'})
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-full">
+                                            {userMap.get(task.user_id) || 'Unknown User'}
+                                        </span>
+                                    )}
                                 </li>
                             ))}
                             {template.tasks.length > 5 && (

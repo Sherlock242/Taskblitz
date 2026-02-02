@@ -9,18 +9,18 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { addTemplate, updateTemplate } from './actions';
-import type { Template, User } from '@/lib/types';
+import type { Template, User, TemplateTask } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type TaskItem = { name: string; user_id: string };
+type TaskItem = { name: string; role: string; user_id: string };
 
 export function AddTemplateDialog({ template, children, users }: { template?: Template, children?: React.ReactNode, users: Pick<User, 'id' | 'name'>[] }) {
     const isEditMode = !!template;
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [tasks, setTasks] = useState<TaskItem[]>([{ name: '', user_id: '' }]);
+    const [tasks, setTasks] = useState<TaskItem[]>([{ name: '', role: '', user_id: '' }]);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
@@ -29,22 +29,24 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
             if (isEditMode && template) {
                 setName(template.name);
                 setDescription(template.description || '');
-                setTasks(template.tasks.length > 0 ? template.tasks : [{ name: '', user_id: '' }]);
+                // Ensure tasks have the 'role' property, providing a default if it's missing from old data
+                const templateTasks = template.tasks.map(t => ({...t, role: (t as any).role || ''}));
+                setTasks(templateTasks.length > 0 ? templateTasks : [{ name: '', role: '', user_id: '' }]);
             } else {
                 setName('');
                 setDescription('');
-                setTasks([{ name: '', user_id: '' }]);
+                setTasks([{ name: '', role: '', user_id: '' }]);
             }
         }
     }, [open, template, isEditMode]);
     
-    const handleTaskChange = (index: number, field: 'name' | 'user_id', value: string) => {
+    const handleTaskChange = (index: number, field: 'name' | 'role' | 'user_id', value: string) => {
         const newTasks = [...tasks];
         newTasks[index] = { ...newTasks[index], [field]: value };
         setTasks(newTasks);
     };
 
-    const addTask = () => setTasks([...tasks, { name: '', user_id: '' }]);
+    const addTask = () => setTasks([...tasks, { name: '', role: '', user_id: '' }]);
     
     const removeTask = (index: number) => {
         if (tasks.length > 1) {
@@ -53,7 +55,7 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
     };
     
     const handleSubmit = async () => {
-        const filteredTasks = tasks.map(t => ({ name: t.name.trim(), user_id: t.user_id })).filter(t => t.name && t.user_id);
+        const filteredTasks = tasks.map(t => ({ name: t.name.trim(), role: t.role.trim(), user_id: t.user_id })).filter(t => t.name && t.user_id);
         if (!name || filteredTasks.length === 0) {
              toast({
                 title: 'Validation Error',
@@ -65,8 +67,8 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
 
         startTransition(async () => {
             const result = isEditMode && template
-                ? await updateTemplate(template.id, name, description, filteredTasks)
-                : await addTemplate(name, description, filteredTasks);
+                ? await updateTemplate(template.id, name, description, filteredTasks as TemplateTask[])
+                : await addTemplate(name, description, filteredTasks as TemplateTask[]);
 
             if (result.error) {
                 toast({
@@ -124,7 +126,7 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                         <div className="flex items-center gap-2 pr-4 text-xs font-bold text-muted-foreground">
                             <div className="w-10 shrink-0 text-center">Task Order</div>
                             <div className="flex-1">Task Name</div>
-                            <div className="w-[180px] shrink-0">Role Responsible</div>
+                            <div className="w-[320px] shrink-0">Role Responsible</div>
                             <div className="w-10 shrink-0"></div> {/* Spacer for delete icon */}
                         </div>
 
@@ -134,16 +136,19 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                                     <div key={index} className="flex items-center gap-2">
                                         <span className="w-10 text-center text-sm font-medium text-muted-foreground">{index + 1}</span>
                                         <Input value={task.name} onChange={e => handleTaskChange(index, 'name', e.target.value)} placeholder={`Task Name`} className="flex-1" />
-                                        <Select value={task.user_id} onValueChange={value => handleTaskChange(index, 'user_id', value)}>
-                                            <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder="Assign to..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {users.map(user => (
-                                                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="flex w-[320px] shrink-0 items-center gap-2">
+                                            <Input value={task.role} onChange={e => handleTaskChange(index, 'role', e.target.value)} placeholder={`Job Title`} className="flex-1" />
+                                            <Select value={task.user_id} onValueChange={value => handleTaskChange(index, 'user_id', value)}>
+                                                <SelectTrigger className="w-[140px]">
+                                                    <SelectValue placeholder="User" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {users.map(user => (
+                                                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)} disabled={tasks.length <= 1}>
                                             <Trash2 className="h-4 w-4 text-muted-foreground" />
                                         </Button>
