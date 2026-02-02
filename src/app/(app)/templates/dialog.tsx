@@ -120,11 +120,19 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                     </div>
                     <div className="grid items-center gap-2">
                         <Label>Tasks (in sequential order)</Label>
+
+                        <div className="flex items-center gap-2 pr-4 text-xs font-medium text-muted-foreground">
+                            <div className="w-10 shrink-0 text-center">Task Order</div>
+                            <div className="flex-1">Task Name</div>
+                            <div className="w-[180px] shrink-0">Role Responsible</div>
+                            <div className="w-10 shrink-0"></div> {/* Spacer for delete icon */}
+                        </div>
+
                         <ScrollArea className="h-56 pr-4">
                             <div className="space-y-3">
                                 {tasks.map((task, index) => (
                                     <div key={index} className="flex items-center gap-2">
-                                        <span className="text-sm font-medium text-muted-foreground">{index + 1}.</span>
+                                        <span className="w-10 text-center text-sm font-medium text-muted-foreground">{index + 1}</span>
                                         <Input value={task.name} onChange={e => handleTaskChange(index, 'name', e.target.value)} placeholder={`Task Name`} className="flex-1" />
                                         <Select value={task.user_id} onValueChange={value => handleTaskChange(index, 'user_id', value)}>
                                             <SelectTrigger className="w-[180px]">
