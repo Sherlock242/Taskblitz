@@ -118,13 +118,14 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     };
 
     if (userRole !== 'Admin') {
-        return { myWorkflows: groupWorkflows(tasks), otherWorkflows: [] };
+        const myTasks = tasks.filter(task => task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review'));
+        return { myWorkflows: groupWorkflows(myTasks), otherWorkflows: [] };
     }
 
     const myWorkflowIds = new Set<string>();
     tasks.forEach(task => {
         if (!task.workflow_instance_id) return;
-        if (task.primary_assignee_id === currentUserId || task.reviewer_id === currentUserId) {
+        if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
             myWorkflowIds.add(task.workflow_instance_id);
         }
     });
@@ -207,12 +208,11 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       {group.tasks.map((task: TaskWithRelations) => {
                           const nextStatuses = getNextStatuses(task);
                           const canUpdate = !isReadOnly && nextStatuses.length > 0;
-                          const actionable = !isReadOnly && (currentUserId === task.primary_assignee_id || currentUserId === task.reviewer_id);
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
 
                           return (
-                              <Card key={task.id} className={!actionable && !isReadOnly ? 'opacity-50' : ''}>
+                              <Card key={task.id} className={isReadOnly ? 'opacity-60' : ''}>
                                   <CardHeader className="pb-4 flex-row items-start justify-between">
                                       <div>
                                           <CardTitle className="text-lg">{task.name}</CardTitle>
@@ -237,13 +237,11 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                           <Select
                                               onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
                                               disabled={isPending}
-                                              value={task.status}
                                           >
                                               <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder={displayStatus} />
+                                                <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : displayStatus} />
                                               </SelectTrigger>
                                               <SelectContent>
-                                                <SelectItem value={task.status}>{isReviewStep ? 'Approve / Reject' : displayStatus}</SelectItem>
                                                 {nextStatuses.map(status => (
                                                   <SelectItem key={status} value={status}>{status}</SelectItem>
                                                 ))}
@@ -321,12 +319,11 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               {group.tasks.map((task: TaskWithRelations) => {
                                   const nextStatuses = getNextStatuses(task);
                                   const canUpdate = !isReadOnly && nextStatuses.length > 0;
-                                  const actionable = !isReadOnly && (currentUserId === task.primary_assignee_id || currentUserId === task.reviewer_id);
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
 
                                   return (
-                                      <TableRow key={task.id} className={!actionable && isReadOnly ? 'opacity-60' : ''}>
+                                      <TableRow key={task.id} className={isReadOnly ? 'opacity-60' : ''}>
                                           <TableCell className="font-medium max-w-xs">
                                               <p className="font-semibold truncate">{task.name}</p>
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
@@ -350,10 +347,9 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                       value={task.status}
                                                   >
                                                       <SelectTrigger className="w-[180px]">
-                                                      <SelectValue placeholder={displayStatus} />
+                                                        <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : displayStatus} />
                                                       </SelectTrigger>
                                                       <SelectContent>
-                                                        <SelectItem value={task.status}>{isReviewStep ? 'Approve / Reject' : displayStatus}</SelectItem>
                                                         {nextStatuses.map(status => (
                                                           <SelectItem key={status} value={status}>{status}</SelectItem>
                                                         ))}
