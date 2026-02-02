@@ -30,7 +30,9 @@ async function DashboardData() {
   let query = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), templates(name, description)');
 
   if (profile.role === 'Member') {
-    query = query.eq('user_id', user.id);
+    // A member should see tasks they are currently assigned to,
+    // or tasks they were the primary assignee for (i.e., tasks they submitted for review).
+    query = query.or(`user_id.eq.${user.id},primary_assignee_id.eq.${user.id}`);
   }
 
   const { data: tasksData, error: tasksError } = await query

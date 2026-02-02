@@ -154,11 +154,31 @@ CREATE POLICY "Users can update their own tasks, Admins can update any." ON publ
 CREATE POLICY "Admins can delete tasks." ON public.tasks FOR DELETE USING ((select role from profiles where id = auth.uid()) = 'Admin');
 
 -- Create policies for 'comments'
-CREATE POLICY "Admins can manage all comments." ON public.comments FOR ALL USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' );
-CREATE POLICY "Members can view comments on their tasks." ON public.comments FOR SELECT TO authenticated USING ( task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid()) );
-CREATE POLICY "Members can create comments on their tasks." ON public.comments FOR INSERT TO authenticated WITH CHECK ( user_id = auth.uid() AND task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid()) );
-CREATE POLICY "Members can update their own comments." ON public.comments FOR UPDATE TO authenticated USING ( user_id = auth.uid() );
-CREATE POLICY "Members can delete their own comments." ON public.comments FOR DELETE TO authenticated USING ( user_id = auth.uid() );
+CREATE POLICY "Admins can manage all comments." ON public.comments FOR ALL
+    USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' );
+
+CREATE POLICY "Members can view comments on their assigned or submitted tasks." ON public.comments
+FOR SELECT
+TO authenticated
+USING (
+    task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid() OR primary_assignee_id = auth.uid())
+);
+
+CREATE POLICY "Members can create comments on their assigned or submitted tasks." ON public.comments
+FOR INSERT
+TO authenticated
+WITH CHECK (
+    user_id = auth.uid() AND
+    task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid() OR primary_assignee_id = auth.uid())
+);
+
+CREATE POLICY "Members can update their own comments." ON public.comments FOR UPDATE
+    TO authenticated
+    USING ( user_id = auth.uid() );
+
+CREATE POLICY "Members can delete their own comments." ON public.comments FOR DELETE
+    TO authenticated
+    USING ( user_id = auth.uid() );
 
 
 -- 4. SET UP USER DELETION
