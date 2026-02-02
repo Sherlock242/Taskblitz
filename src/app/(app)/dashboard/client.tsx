@@ -27,9 +27,11 @@ const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'ou
     case 'Submitted for Review':
       return 'default';
     case 'Assigned':
-      return 'outline';
+      return 'default';
     case 'Changes Requested':
         return 'destructive';
+    case 'Pending':
+        return 'outline';
     default:
       return 'outline';
   }
@@ -108,19 +110,16 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     const isPrimaryAssignee = currentUserId === task.primary_assignee_id;
     const isReviewer = currentUserId === task.reviewer_id;
 
-    // The user currently assigned the task
-    const isCurrentUserForTask = currentUserId === task.user_id;
-
     switch (task.status) {
         case 'Assigned':
         case 'Changes Requested':
-            return isPrimaryAssignee && isCurrentUserForTask ? ['In Progress'] : [];
+            return isPrimaryAssignee ? ['In Progress'] : [];
         case 'In Progress':
-            return isPrimaryAssignee && isCurrentUserForTask ? ['Submitted for Review'] : [];
+            return isPrimaryAssignee ? ['Submitted for Review'] : [];
         case 'Submitted for Review':
-            return isReviewer && isCurrentUserForTask ? ['Approved', 'Changes Requested'] : [];
+            return isReviewer ? ['Approved', 'Changes Requested'] : [];
         default:
-            return []; // No changes allowed for Approved/Completed tasks from dropdown
+            return []; // No changes allowed for Pending/Approved/Completed tasks from dropdown
     }
   }
 
@@ -130,12 +129,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         <Card>
             <CardHeader>
                 <CardTitle className="font-headline">Task Dashboard</CardTitle>
-                <CardDescription>An overview of all tasks in the system.</CardDescription>
+                <CardDescription>An overview of all tasks assigned to you.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="text-center py-10 border-2 border-dashed rounded-lg">
                     <h3 className="text-lg font-semibold">No Tasks Yet</h3>
-                    <p className="text-muted-foreground mt-2">Get started by assigning a template to a user.</p>
+                    <p className="text-muted-foreground mt-2">You have no assigned tasks.</p>
                     {userRole === 'Admin' && (
                       <Button asChild className="mt-4">
                           <Link href="/assign">Assign Tasks</Link>
@@ -150,27 +149,13 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   const PageHeader = () => (
     <div className="flex flex-col gap-2">
       <h1 className="text-2xl font-bold tracking-tight font-headline">Task Dashboard</h1>
-      <p className="text-muted-foreground">An overview of all tasks in the system.</p>
+      <p className="text-muted-foreground">An overview of all tasks assigned to you.</p>
     </div>
   );
-
-  const isTaskActive = (task: TaskWithRelations, allTasksInGroup: TaskWithRelations[]): boolean => {
-    // A task that is submitted is active for the reviewer
-    if (task.status === 'Submitted for Review') {
-      return currentUserId === task.user_id;
-    }
-    // Any other status is active for the primary assignee
-    if (task.user_id !== task.primary_assignee_id) {
-        return false;
-    }
-    // For sequential tasks, the first task is always active for the assignee.
-    if (task.position === 0) {
-      return true;
-    }
-    // Subsequent tasks are active only if the previous one is approved or completed.
-    const prevTask = allTasksInGroup.find(t => t.position === (task.position ?? 0) - 1);
-    return prevTask?.status === 'Approved' || prevTask?.status === 'Completed';
-  };
+  
+  const isActionable = (task: TaskWithRelations): boolean => {
+      return getNextStatuses(task).length > 0;
+  }
 
   if (isMobile) {
     return (
@@ -216,13 +201,13 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                     {group.tasks.map(task => {
                         const nextStatuses = getNextStatuses(task);
                         const canUpdate = nextStatuses.length > 0;
-                        const active = isTaskActive(task, group.tasks);
+                        const actionable = isActionable(task);
                         
                         const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                         const isReviewStep = task.status === 'Submitted for Review';
 
                         return (
-                            <Card key={task.id} className={!active ? 'opacity-50' : ''}>
+                            <Card key={task.id} className={!actionable ? 'opacity-50' : ''}>
                                 <CardHeader className="pb-4 flex-row items-start justify-between">
                                     <div>
                                         <CardTitle className="text-lg">{task.name}</CardTitle>
@@ -243,7 +228,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                     <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
                                         {isReviewStep ? `Pending Review` : displayStatus}
                                     </Badge>
-                                    {canUpdate && active ? (
+                                    {canUpdate ? (
                                         <Select
                                             onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
                                             disabled={isPending}
@@ -331,13 +316,13 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                             {group.tasks.map(task => {
                                 const nextStatuses = getNextStatuses(task);
                                 const canUpdate = nextStatuses.length > 0;
-                                const active = isTaskActive(task, group.tasks);
+                                const actionable = isActionable(task);
                                 
                                 const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                 const isReviewStep = task.status === 'Submitted for Review';
 
                                 return (
-                                    <TableRow key={task.id} className={!active ? 'opacity-50' : ''}>
+                                    <TableRow key={task.id} className={!actionable ? 'opacity-60' : ''}>
                                         <TableCell className="font-medium max-w-xs">
                                             <p className="font-semibold truncate">{task.name}</p>
                                             {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
@@ -351,7 +336,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex justify-center items-center h-9">
-                                            {canUpdate && active ? (
+                                            {canUpdate ? (
                                                 <Select
                                                     onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
                                                     disabled={isPending}
@@ -369,7 +354,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                 </Select>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">
-                                                    {displayStatus}
+                                                    {task.status}
                                                 </span>
                                             )}
                                             </div>
@@ -396,7 +381,3 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
-
-    
-
-    

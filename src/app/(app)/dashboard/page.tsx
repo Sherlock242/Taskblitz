@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
-import type { User } from '@/lib/types';
+import type { User, Task } from '@/lib/types';
 
 async function DashboardData() {
   const supabase = createClient();
@@ -28,42 +28,39 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load your profile.</p>;
   }
 
-  let tasksQuery = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
+  // Fetch tasks assigned directly to the user
+  const { data: myTasks, error: myTasksError } = await supabase
+    .from('tasks')
+    .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)')
+    .eq('user_id', user.id);
 
-  if (profile.role === 'Member') {
-    // For members, first find all workflow instances they are a part of.
-    // A user is part of a workflow if they are the primary assignee, the designated reviewer, or directly assigned a task.
-    const { data: workflowIdsData, error: workflowIdsError } = await supabase
-      .from('tasks')
-      .select('workflow_instance_id')
-      .or(`primary_assignee_id.eq.${user.id},reviewer_id.eq.${user.id},user_id.eq.${user.id}`);
+  // Fetch tasks pending the user's review
+  const { data: reviewTasks, error: reviewTasksError } = await supabase
+    .from('tasks')
+    .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)')
+    .eq('reviewer_id', user.id)
+    .eq('status', 'Submitted for Review');
 
-    if (workflowIdsError) {
-        console.error('Error fetching workflow IDs', workflowIdsError);
-        return <p className="text-destructive text-center">Could not load tasks.</p>;
-    }
-    
-    const workflowIds = [...new Set(workflowIdsData.map(t => t.workflow_instance_id))];
-
-    if (workflowIds.length === 0) {
-        return <DashboardClient tasks={[]} userRole={profile.role as User['role']} currentUserId={user.id} />;
-    }
-
-    // Then, fetch all tasks for those workflows.
-    tasksQuery = tasksQuery.in('workflow_instance_id', workflowIds);
-  }
-
-  const { data: tasksData, error: tasksError } = await tasksQuery
-    .order('created_at', { ascending: true })
-    .order('position', { ascending: true, nullsFirst: false });
-
-
-  if (tasksError) {
-    console.error('Error fetching tasks', tasksError);
+  if (myTasksError || reviewTasksError) {
+    console.error('Error fetching tasks', myTasksError || reviewTasksError);
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
+  
+  // Merge and de-duplicate tasks
+  const allTasks = [...(myTasks || []), ...(reviewTasks || [])];
+  const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
 
-  return <DashboardClient tasks={tasksData as unknown as TaskWithRelations[]} userRole={profile.role as User['role']} currentUserId={user.id} />;
+  // Sort tasks
+  uniqueTasks.sort((a, b) => {
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    if (dateA !== dateB) {
+      return dateA - dateB;
+    }
+    return (a.position ?? 0) - (b.position ?? 0);
+  });
+
+  return <DashboardClient tasks={uniqueTasks as unknown as TaskWithRelations[]} userRole={profile.role as User['role']} currentUserId={user.id} />;
 }
 
 
@@ -91,7 +88,3 @@ function DashboardSkeleton() {
     </Card>
   )
 }
-
-    
-
-    

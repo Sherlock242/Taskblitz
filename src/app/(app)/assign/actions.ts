@@ -9,9 +9,6 @@ export async function assignTasks(templateId: string, primaryAssigneeId: string,
     if (!templateId) {
         return { error: { message: 'Please select a template.' } };
     }
-    if (!primaryAssigneeId) {
-        return { error: { message: 'Please select a primary assignee.' } };
-    }
     if (!reviewerId) {
         return { error: { message: 'Please select a reviewer.' } };
     }
@@ -42,14 +39,13 @@ export async function assignTasks(templateId: string, primaryAssigneeId: string,
 
     const workflowInstanceId = randomUUID();
 
-    // All tasks in the workflow are initially assigned to the primary assignee.
     const newTasks = templateTasks.map((task, index) => ({
         name: task.name,
         template_id: templateId,
-        user_id: primaryAssigneeId,
-        primary_assignee_id: primaryAssigneeId,
+        user_id: task.user_id,
+        primary_assignee_id: task.user_id,
         reviewer_id: reviewerId,
-        status: 'Assigned',
+        status: index === 0 ? 'Assigned' : 'Pending',
         assigned_by: adminUser.id,
         position: index,
         workflow_instance_id: workflowInstanceId,
