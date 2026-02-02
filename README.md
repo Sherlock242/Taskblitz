@@ -147,7 +147,7 @@ CREATE POLICY "Templates are viewable by authenticated users." ON public.templat
 CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING ( (select role from profiles where id = auth.uid()) = 'Admin' );
 
 -- Create policies for 'tasks'
-CREATE POLICY "Users can view their own assigned tasks." ON public.tasks FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view their assigned or submitted tasks." ON public.tasks FOR SELECT USING (auth.uid() = user_id OR auth.uid() = primary_assignee_id);
 CREATE POLICY "Admins can view all tasks." ON public.tasks FOR SELECT USING ((select role from profiles where id = auth.uid()) = 'Admin');
 CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can update their own tasks, Admins can update any." ON public.tasks FOR UPDATE USING (auth.uid() = user_id OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin');
@@ -231,3 +231,4 @@ npm run dev
 ```
 
 The application will be available at [https://taskblitsz.netlify.app/login](https://taskblitsz.netlify.app/login).
+
