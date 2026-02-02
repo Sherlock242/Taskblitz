@@ -208,6 +208,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                         const canUpdate = nextStatuses.length > 0;
                         const active = isTaskActive(task, group.tasks);
                         if (!active && userRole !== 'Admin') return null;
+                        const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
 
                         return (
                             <Card key={task.id} className={!active ? 'opacity-50' : ''}>
@@ -229,7 +230,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                 <CardContent>
                                     <div className="flex justify-between items-center">
                                     <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
-                                        {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
+                                        {displayStatus}
                                     </Badge>
                                     {canUpdate && active ? (
                                         <Select
@@ -238,10 +239,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                             value={task.status}
                                         >
                                             <SelectTrigger className="w-[180px]">
-                                              <SelectValue placeholder={task.status} />
+                                              <SelectValue placeholder={displayStatus} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              <SelectItem value={task.status}>{task.status}</SelectItem>
+                                              <SelectItem value={task.status}>{displayStatus}</SelectItem>
                                               {nextStatuses.map(status => (
                                                 <SelectItem key={status} value={status}>{status}</SelectItem>
                                               ))}
@@ -250,7 +251,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                     ) : (
                                         <div className="w-[180px] h-9 flex items-center justify-end">
                                             <span className="text-sm text-muted-foreground pr-2">
-                                                {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
+                                                {displayStatus}
                                             </span>
                                         </div>
                                     )}
@@ -321,6 +322,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                 const canUpdate = nextStatuses.length > 0;
                                 const active = isTaskActive(task, group.tasks);
                                 if (!active && userRole !== 'Admin') return null;
+                                const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
 
                                 return (
                                     <TableRow key={task.id} className={!active ? 'opacity-50' : ''}>
@@ -331,7 +333,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                         <TableCell>
                                             <div className="flex items-center justify-center">
                                                 <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
-                                                {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
+                                                {displayStatus}
                                                 </Badge>
                                             </div>
                                         </TableCell>
@@ -344,10 +346,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                     value={task.status}
                                                 >
                                                     <SelectTrigger className="w-[180px]">
-                                                    <SelectValue placeholder={task.status} />
+                                                    <SelectValue placeholder={displayStatus} />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                      <SelectItem value={task.status}>{task.status}</SelectItem>
+                                                      <SelectItem value={task.status}>{displayStatus}</SelectItem>
                                                       {nextStatuses.map(status => (
                                                         <SelectItem key={status} value={status}>{status}</SelectItem>
                                                       ))}
@@ -355,7 +357,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                 </Select>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">
-                                                    {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
+                                                    {displayStatus}
                                                 </span>
                                             )}
                                             </div>
@@ -382,3 +384,5 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
+
+    
