@@ -61,6 +61,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   };
 
   const getNextStatuses = (task: TaskWithRelations): Array<Task['status']> => {
+    if (userRole === 'Admin') {
+        const allStatuses: Array<Task['status']> = ['Pending', 'Assigned', 'In Progress', 'Submitted for Review', 'Changes Requested', 'Approved', 'Completed'];
+        return allStatuses.filter(s => s !== task.status);
+    }
     const isPrimaryAssignee = currentUserId === task.primary_assignee_id;
     const isReviewer = currentUserId === task.reviewer_id;
 
@@ -210,12 +214,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
                       {group.tasks.map((task: TaskWithRelations) => {
                           const nextStatuses = getNextStatuses(task);
-                          const canUpdate = !isReadOnly && nextStatuses.length > 0;
+                          const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
 
                           return (
-                              <Card key={task.id} className={isReadOnly ? 'opacity-60' : ''}>
+                              <Card key={task.id} className={isReadOnly && userRole !== 'Admin' ? 'opacity-60' : ''}>
                                   <CardHeader className="pb-4 flex-row items-start justify-between">
                                       <div>
                                           <CardTitle className="text-lg">{task.name}</CardTitle>
@@ -247,7 +251,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                               disabled={isPending}
                                           >
                                               <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
+                                                <SelectValue placeholder={userRole === 'Admin' ? task.status : (isReviewStep ? 'Approve / Reject' : 'To Do')} />
                                               </SelectTrigger>
                                               <SelectContent>
                                                 {nextStatuses.map(status => (
@@ -326,12 +330,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                           <TableBody>
                               {group.tasks.map((task: TaskWithRelations) => {
                                   const nextStatuses = getNextStatuses(task);
-                                  const canUpdate = !isReadOnly && nextStatuses.length > 0;
+                                  const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
 
                                   return (
-                                      <TableRow key={task.id} className={isReadOnly ? 'opacity-60' : ''}>
+                                      <TableRow key={task.id} className={isReadOnly && userRole !== 'Admin' ? 'opacity-60' : ''}>
                                           <TableCell className="font-medium max-w-xs">
                                               <p className="font-semibold truncate">{task.name}</p>
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
@@ -359,7 +363,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                       disabled={isPending}
                                                   >
                                                       <SelectTrigger className="w-[180px]">
-                                                        <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
+                                                        <SelectValue placeholder={userRole === 'Admin' ? task.status : (isReviewStep ? 'Approve / Reject' : 'To Do')} />
                                                       </SelectTrigger>
                                                       <SelectContent>
                                                         {nextStatuses.map(status => (

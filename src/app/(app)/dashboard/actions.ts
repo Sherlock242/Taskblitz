@@ -14,6 +14,14 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: 'You must be logged in to update tasks.' } };
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', currentUser.id)
+    .single();
+
+  const isAdmin = profile?.role === 'Admin';
+
   const { data: task, error: taskError } = await supabase
     .from('tasks')
     .select('*')
@@ -30,21 +38,39 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
 
   const isPrimaryAssignee = currentUser.id === task.primary_assignee_id;
   const isReviewer = currentUser.id === task.reviewer_id;
+  let isValidTransition = false;
 
   // --- State Machine Logic ---
-  if (newStatus === 'In Progress' && (task.status === 'Assigned' || task.status === 'Changes Requested') && isPrimaryAssignee) {
+  if (isAdmin) {
+    isValidTransition = true;
+    updatePayload.status = newStatus;
+  }
+  else if (newStatus === 'In Progress' && (task.status === 'Assigned' || task.status === 'Changes Requested') && isPrimaryAssignee) {
+    isValidTransition = true;
     updatePayload.status = 'In Progress';
   }
   else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee) {
     if (!task.reviewer_id) {
       return { error: { message: 'No reviewer has been designated for this workflow.' } };
     }
+    isValidTransition = true;
     updatePayload.status = 'Submitted for Review';
   }
   else if (newStatus === 'Changes Requested' && task.status === 'Submitted for Review' && isReviewer) {
+    isValidTransition = true;
     updatePayload.status = 'Changes Requested';
   }
   else if (newStatus === 'Approved' && task.status === 'Submitted for Review' && isReviewer) {
+    isValidTransition = true;
+    updatePayload.status = 'Approved';
+  }
+  
+  if (!isValidTransition) {
+    return { error: { message: `Invalid status transition from "${task.status}" to "${newStatus}".` } };
+  }
+
+  // Handle side-effect for 'Approved' status
+  if (updatePayload.status === 'Approved') {
     const supabaseAdmin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -59,7 +85,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
         .maybeSingle();
 
     if (nextTask) {
-        updatePayload.status = 'Approved';
+        // Status is already 'Approved'
         const { error: updateNextError } = await supabaseAdmin
             .from('tasks')
             .update({ status: 'Assigned' })
@@ -69,11 +95,9 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
             return { error: { message: `Failed to activate next task: ${updateNextError.message}` } };
         }
     } else {
+        // This is the last task, so the workflow is completed
         updatePayload.status = 'Completed';
     }
-  }
-  else {
-    return { error: { message: `Invalid status transition from "${task.status}" to "${newStatus}".` } };
   }
   
   const { error } = await supabase
