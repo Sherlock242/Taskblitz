@@ -11,14 +11,13 @@ import { assignTasks } from './actions';
 
 export function AssignForm({ templates, users }: { templates: Template[], users: User[] }) {
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-    const [selectedAssignee, setSelectedAssignee] = useState<string>('');
     const [selectedReviewer, setSelectedReviewer] = useState<string>('');
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
 
     const handleAssign = async () => {
         startTransition(async () => {
-            const result = await assignTasks(selectedTemplate, selectedAssignee, selectedReviewer);
+            const result = await assignTasks(selectedTemplate, selectedReviewer);
             if (result.error) {
                 toast({
                     title: 'Error',
@@ -31,13 +30,12 @@ export function AssignForm({ templates, users }: { templates: Template[], users:
                     description: result.data.message,
                 });
                  setSelectedTemplate('');
-                 setSelectedAssignee('');
                  setSelectedReviewer('');
             }
         });
     };
 
-    const canSubmit = selectedTemplate && selectedAssignee && selectedReviewer;
+    const canSubmit = selectedTemplate && selectedReviewer;
 
     return (
         <Card className="w-full max-w-md">
@@ -55,19 +53,6 @@ export function AssignForm({ templates, users }: { templates: Template[], users:
                         <SelectContent>
                             {templates.map(template => (
                                 <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="grid gap-2">
-                    <Label htmlFor="assignee">Primary Assignee</Label>
-                    <Select value={selectedAssignee} onValueChange={setSelectedAssignee} disabled={isPending}>
-                        <SelectTrigger id="assignee">
-                            <SelectValue placeholder="Select who will do the work" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {users.map(user => (
-                                <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

@@ -5,12 +5,9 @@ import { revalidatePath } from 'next/cache';
 import type { TemplateTask } from '@/lib/types';
 import { randomUUID } from 'crypto';
 
-export async function assignTasks(templateId: string, primaryAssigneeId: string, reviewerId: string) {
+export async function assignTasks(templateId: string, reviewerId: string) {
     if (!templateId) {
         return { error: { message: 'Please select a template.' } };
-    }
-    if (!primaryAssigneeId) {
-        return { error: { message: 'Please select a primary assignee.' } };
     }
     if (!reviewerId) {
         return { error: { message: 'Please select a reviewer.' } };
@@ -36,8 +33,8 @@ export async function assignTasks(templateId: string, primaryAssigneeId: string,
     
     const templateTasks = template.tasks as TemplateTask[];
 
-    if (!templateTasks || templateTasks.length === 0) {
-        return { error: { message: 'The selected template has no tasks.' } };
+    if (!templateTasks || templateTasks.length === 0 || !templateTasks[0].user_id) {
+        return { error: { message: 'The selected template has no tasks or the first task has no assignee.' } };
     }
 
     const workflowInstanceId = randomUUID();
@@ -45,8 +42,8 @@ export async function assignTasks(templateId: string, primaryAssigneeId: string,
     const newTasks = templateTasks.map((task, index) => ({
         name: task.name,
         template_id: templateId,
-        user_id: primaryAssigneeId, // The user_id is the primary assignee for the entire workflow
-        primary_assignee_id: primaryAssigneeId, // The primary assignee from the form
+        user_id: templateTasks[0].user_id, // The user_id of the first task's assignee becomes the workflow owner
+        primary_assignee_id: task.user_id, // Each task is assigned to the user defined in the template
         reviewer_id: reviewerId,
         status: index === 0 ? 'Assigned' : 'Pending',
         assigned_by: adminUser.id,

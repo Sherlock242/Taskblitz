@@ -35,10 +35,6 @@ function AssignSkeleton() {
                     <Skeleton className="h-5 w-24" />
                     <Skeleton className="h-10 w-full" />
                 </div>
-                <div className="grid gap-2">
-                    <Skeleton className="h-5 w-24" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
             </CardContent>
             <CardFooter>
                 <Skeleton className="h-10 w-full" />
