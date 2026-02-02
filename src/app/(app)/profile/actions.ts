@@ -4,6 +4,34 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
+export async function updateProfile(formData: FormData) {
+  const name = formData.get('name') as string;
+  if (!name.trim()) {
+    return { error: { message: 'Name cannot be empty.' } };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: { message: 'You must be logged in to update your profile.' } };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ name: name.trim() })
+    .eq('id', user.id);
+
+  if (error) {
+    return { error: { message: `Failed to update profile: ${error.message}` } };
+  }
+  
+  revalidatePath('/profile');
+  revalidatePath('/(app)/layout', 'layout'); // Revalidate layout to update UserNav
+
+  return { data: { message: 'Profile updated successfully.' } };
+}
+
 export async function updateAvatar(formData: FormData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

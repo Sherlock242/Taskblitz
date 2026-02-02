@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useRef, useTransition } from 'react';
-import { updateAvatar, updatePassword, deleteAccount } from './actions';
+import { updateAvatar, updatePassword, deleteAccount, updateProfile } from './actions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,9 @@ export function ProfileClient({ user }: { user: User }) {
     const [isAvatarPending, startAvatarTransition] = useTransition();
     const [isPasswordPending, startPasswordTransition] = useTransition();
     const [isDeletePending, startDeleteTransition] = useTransition();
+    const [isProfilePending, startProfileTransition] = useTransition();
     const passwordFormRef = useRef<HTMLFormElement>(null);
+    const profileFormRef = useRef<HTMLFormElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,6 +48,17 @@ export function ProfileClient({ user }: { user: User }) {
             // Reset file input
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
+            }
+        });
+    };
+
+    const handleUpdateProfile = (formData: FormData) => {
+        startProfileTransition(async () => {
+            const result = await updateProfile(formData);
+            if (result.error) {
+                toast({ title: 'Error', description: result.error.message, variant: 'destructive' });
+            } else if (result.data) {
+                toast({ title: 'Profile Updated!', description: result.data.message });
             }
         });
     };
@@ -74,44 +87,51 @@ export function ProfileClient({ user }: { user: User }) {
         <div className="grid gap-6">
             {/* Profile Card */}
             <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Profile Information</CardTitle>
-                    <CardDescription>Update your photo and personal details.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center gap-4">
-                        <Avatar className="h-20 w-20">
-                            <AvatarImage src={user.avatar_url} alt={user.name} />
-                            <AvatarFallback>{user.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="grid gap-1">
-                            <p className="text-lg font-semibold">{user.name}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                            <p className="text-sm text-muted-foreground capitalize">Role: {user.role}</p>
+                <form action={handleUpdateProfile} ref={profileFormRef}>
+                    <CardHeader>
+                        <CardTitle className="font-headline">Profile Information</CardTitle>
+                        <CardDescription>Update your photo and personal details.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-20 w-20">
+                                <AvatarImage src={user.avatar_url} alt={user.name} />
+                                <AvatarFallback>{user.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="grid gap-2 w-full">
+                                <Label htmlFor="name">Full Name</Label>
+                                <Input id="name" name="name" defaultValue={user.name} required disabled={isProfilePending} />
+                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                                <p className="text-sm text-muted-foreground capitalize">Role: {user.role}</p>
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
-                <CardFooter className="border-t px-6 py-4">
-                    <form>
-                        <Input
-                            id="avatar-upload"
-                            name="avatar-upload"
-                            type="file"
-                            accept="image/png, image/jpeg"
-                            onChange={handleAvatarChange}
-                            className="hidden"
-                            ref={fileInputRef}
-                            disabled={isAvatarPending}
-                        />
-                        <Button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isAvatarPending}
-                        >
-                            {isAvatarPending ? 'Uploading...' : 'Upload New Avatar'}
+                    </CardContent>
+                    <CardFooter className="border-t px-6 py-4 flex justify-between">
+                         <div>
+                            <Input
+                                id="avatar-upload"
+                                name="avatar"
+                                type="file"
+                                accept="image/png, image/jpeg"
+                                onChange={handleAvatarChange}
+                                className="hidden"
+                                ref={fileInputRef}
+                                disabled={isAvatarPending}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isAvatarPending}
+                            >
+                                {isAvatarPending ? 'Uploading...' : 'Upload New Avatar'}
+                            </Button>
+                        </div>
+                        <Button type="submit" disabled={isProfilePending}>
+                            {isProfilePending ? 'Saving...' : 'Save Name'}
                         </Button>
-                    </form>
-                </CardFooter>
+                    </CardFooter>
+                </form>
             </Card>
 
             {/* Change Password Card */}
