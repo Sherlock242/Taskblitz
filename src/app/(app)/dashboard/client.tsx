@@ -235,7 +235,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                             disabled={isPending}
                                         >
                                             <SelectTrigger className="w-[140px] h-9">
-                                              <SelectValue placeholder="Action" />
+                                              <SelectValue placeholder="To Do" />
                                             </SelectTrigger>
                                             <SelectContent>
                                               {nextStatuses.map(status => (
@@ -339,7 +339,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                     disabled={isPending}
                                                 >
                                                     <SelectTrigger className="w-[180px]">
-                                                    <SelectValue placeholder="Select an action" />
+                                                    <SelectValue placeholder="To Do" />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                       {nextStatuses.map(status => (
@@ -376,5 +376,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
+
+    
 
     
