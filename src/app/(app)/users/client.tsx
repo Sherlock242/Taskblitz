@@ -1,15 +1,38 @@
 "use client";
 
-import React from 'react';
+import React, { useTransition } from 'react';
 import type { User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { updateUserRole } from './actions';
 
-export function UsersClient({ users }: { users: User[] }) {
+
+interface UsersClientProps {
+    users: User[];
+    currentUserId: string;
+    currentUserRole: User['role'];
+}
+
+export function UsersClient({ users, currentUserId, currentUserRole }: UsersClientProps) {
     const isMobile = useIsMobile();
+    const { toast } = useToast();
+    const [isPending, startTransition] = useTransition();
+
+    const handleRoleChange = (userId: string, newRole: User['role']) => {
+        startTransition(async () => {
+            const result = await updateUserRole(userId, newRole);
+            if (result.error) {
+                toast({ title: 'Error', description: result.error.message, variant: 'destructive' });
+            } else {
+                toast({ title: 'Success', description: 'User role updated.' });
+            }
+        });
+    };
 
     if (users.length === 0) {
         return (
@@ -47,7 +70,23 @@ export function UsersClient({ users }: { users: User[] }) {
                                     <CardTitle className="text-lg">{user.name}</CardTitle>
                                     <p className="text-sm text-muted-foreground">{user.email}</p>
                                 </div>
-                                <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
+                                {currentUserRole === 'Admin' && user.id !== currentUserId ? (
+                                    <Select 
+                                        defaultValue={user.role} 
+                                        onValueChange={(newRole: User['role']) => handleRoleChange(user.id, newRole)}
+                                        disabled={isPending}
+                                    >
+                                        <SelectTrigger className="w-[110px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Admin">Admin</SelectItem>
+                                            <SelectItem value="Member">Member</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
+                                )}
                             </div>
                         </CardHeader>
                     </Card>
@@ -85,7 +124,25 @@ export function UsersClient({ users }: { users: User[] }) {
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                                 <TableCell className="text-right">
-                                    <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
+                                    {currentUserRole === 'Admin' && user.id !== currentUserId ? (
+                                        <div className="flex justify-end">
+                                            <Select 
+                                                defaultValue={user.role} 
+                                                onValueChange={(newRole: User['role']) => handleRoleChange(user.id, newRole)}
+                                                disabled={isPending}
+                                            >
+                                                <SelectTrigger className="w-[120px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Admin">Admin</SelectItem>
+                                                    <SelectItem value="Member">Member</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    ) : (
+                                        <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}

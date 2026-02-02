@@ -87,6 +87,8 @@ CREATE TABLE public.templates (
 CREATE TABLE public.tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    description TEXT,
+    deadline TIMESTAMPTZ,
     template_id UUID REFERENCES templates(id) ON DELETE SET NULL,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     assigned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -95,6 +97,15 @@ CREATE TABLE public.tasks (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     position INTEGER
+);
+
+-- Create a table for comments
+CREATE TABLE public.comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 
@@ -116,28 +127,38 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 
--- 3. SET UP ROW LEVEL SECURITY
+-- 3. SET UP ROW LEVEL SECURITY (RLS)
 
--- Enable Row Level Security for all tables
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+-- Enable RLS for all tables
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for 'profiles'
-CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
-CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Admins can update any profile." ON public.profiles FOR UPDATE USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin');
+
 
 -- Create policies for 'templates'
-CREATE POLICY "Templates are viewable by authenticated users." ON templates FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Admins can manage templates." ON templates FOR ALL USING ( (select role from profiles where id = auth.uid()) = 'Admin' );
+CREATE POLICY "Templates are viewable by authenticated users." ON public.templates FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING ( (select role from profiles where id = auth.uid()) = 'Admin' );
 
 -- Create policies for 'tasks'
-CREATE POLICY "Users can view their own assigned tasks." ON tasks FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Admins can view all tasks." ON tasks FOR SELECT USING ((select role from profiles where id = auth.uid()) = 'Admin');
-CREATE POLICY "Users can insert tasks." ON tasks FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own tasks." ON tasks FOR UPDATE USING (auth.uid() = user_id OR auth.uid() = assigned_by);
-CREATE POLICY "Admins can delete tasks." ON tasks FOR DELETE USING ((select role from profiles where id = auth.uid()) = 'Admin');
+CREATE POLICY "Users can view their own assigned tasks." ON public.tasks FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admins can view all tasks." ON public.tasks FOR SELECT USING ((select role from profiles where id = auth.uid()) = 'Admin');
+CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can update their own tasks, Admins can update any." ON public.tasks FOR UPDATE USING (auth.uid() = user_id OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin');
+CREATE POLICY "Admins can delete tasks." ON public.tasks FOR DELETE USING ((select role from profiles where id = auth.uid()) = 'Admin');
+
+-- Create policies for 'comments'
+CREATE POLICY "Admins can manage all comments." ON public.comments FOR ALL USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' );
+CREATE POLICY "Members can view comments on their tasks." ON public.comments FOR SELECT TO authenticated USING ( task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid()) );
+CREATE POLICY "Members can create comments on their tasks." ON public.comments FOR INSERT TO authenticated WITH CHECK ( user_id = auth.uid() AND task_id IN (SELECT id FROM public.tasks WHERE user_id = auth.uid()) );
+CREATE POLICY "Members can update their own comments." ON public.comments FOR UPDATE TO authenticated USING ( user_id = auth.uid() );
+CREATE POLICY "Members can delete their own comments." ON public.comments FOR DELETE TO authenticated USING ( user_id = auth.uid() );
 
 
 -- 4. SET UP USER DELETION

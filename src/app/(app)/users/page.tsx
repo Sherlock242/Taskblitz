@@ -7,6 +7,10 @@ import { UsersClient } from './client';
 
 async function UsersData() {
     const supabase = createClient();
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUser!.id).single();
+
     const { data: users, error } = await supabase
         .from('profiles')
         .select('*')
@@ -27,7 +31,11 @@ async function UsersData() {
         );
     }
 
-    return <UsersClient users={users as User[]} />;
+    return <UsersClient 
+        users={users as User[]} 
+        currentUserId={currentUser!.id}
+        currentUserRole={profile?.role as User['role']}
+    />;
 }
 
 function UsersSkeleton() {

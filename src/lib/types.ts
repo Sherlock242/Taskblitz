@@ -16,6 +16,8 @@ export type Template = {
 export type Task = {
   id: string;
   name: string;
+  description: string | null;
+  deadline: string | null;
   template_id: string | null;
   user_id: string;
   assigned_by: string | null;
@@ -24,4 +26,13 @@ export type Task = {
   created_at: string;
   updated_at: string | null;
   position: number | null;
+};
+
+export type Comment = {
+  id: string;
+  task_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  profiles: Pick<User, 'name' | 'avatar_url'> | null;
 };

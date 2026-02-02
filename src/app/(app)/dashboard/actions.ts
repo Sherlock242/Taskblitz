@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import type { Task } from '@/lib/types';
+import type { Task, Comment } from '@/lib/types';
 
 export async function updateTaskStatus(taskId: string, newStatus: Task['status']) {
   const supabase = createClient();
@@ -11,6 +11,8 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
   if (!currentUser) {
     return { error: { message: 'You must be logged in to update tasks.' } };
   }
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUser.id).single();
 
   const { data: task, error: taskError } = await supabase
     .from('tasks')
@@ -22,8 +24,8 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: `Task not found: ${taskError?.message}` } };
   }
 
-  // Ensure the user changing the status is the one the task is assigned to.
-  if (currentUser.id !== task.user_id) {
+  // Ensure the user changing the status is the one the task is assigned to OR is an admin
+  if (profile?.role !== 'Admin' && currentUser.id !== task.user_id) {
       return { error: { message: 'You can only update tasks assigned to you.'}};
   }
 
@@ -113,4 +115,69 @@ export async function deleteTask(taskId: string) {
 
   revalidatePath('/dashboard');
   return { data: { message: 'Task deleted successfully.' } };
+}
+
+
+export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'name' | 'description' | 'deadline'>>) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+      return { error: { message: 'You must be logged in.' } };
+  }
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+
+  if (profile?.role !== 'Admin') {
+      return { error: { message: 'Only admins can edit tasks.' } };
+  }
+
+  const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
+
+  if (error) {
+    return { error: { message: `Failed to update task: ${error.message}` } };
+  }
+
+  revalidatePath('/dashboard');
+  return { data: { message: 'Task updated successfully.' } };
+}
+
+export async function getComments(taskId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*, profiles(name, avatar_url)')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true });
+    
+  if (error) {
+    console.error("Error fetching comments", error);
+    return { error };
+  }
+  return { data: data as Comment[] };
+}
+
+export async function addComment(taskId: string, content: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: { message: 'You must be logged in to comment.' } };
+  }
+
+  if (!content.trim()) {
+    return { error: { message: 'Comment cannot be empty.' } };
+  }
+
+  const { error } = await supabase.from('comments').insert({
+    task_id: taskId,
+    user_id: user.id,
+    content,
+  });
+
+  if (error) {
+    return { error: { message: `Failed to add comment: ${error.message}` } };
+  }
+
+  revalidatePath('/dashboard');
+  return { data: { message: 'Comment added.' } };
 }

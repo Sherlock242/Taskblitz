@@ -13,6 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { updateTaskStatus } from './actions';
 import { DeleteTaskDialog } from './delete-task-dialog';
+import { Edit, MessageSquare } from 'lucide-react';
+import { EditTaskDialog } from './edit-task-dialog';
+import { CommentsSheet } from './comments-sheet';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -128,26 +131,26 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                         <div className="flex flex-col gap-4 items-end flex-shrink-0">
                             {group.assigner && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                     <div className="flex flex-col text-xs text-right">
+                                        <span>Assigned by</span>
+                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
+                                    </div>
                                     <Avatar className="h-8 w-8">
                                         <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
                                         <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
                                     </Avatar>
-                                    <div className="flex flex-col text-xs text-right">
-                                        <span>Assigned by</span>
-                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
-                                    </div>
                                 </div>
                             )}
                             {group.assignee && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
-                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
                                     <div className="flex flex-col text-xs text-right">
                                         <span>Assigned to</span>
                                         <span className="font-medium text-foreground">{group.assignee.name}</span>
                                     </div>
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
+                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
                                 </div>
                             )}
                         </div>
@@ -158,10 +161,19 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                         return (
                             <Card key={task.id}>
                                 <CardHeader className="pb-4 flex-row items-start justify-between">
-                                    <CardTitle className="text-lg">{task.name}</CardTitle>
-                                    {userRole === 'Admin' && (
-                                        <DeleteTaskDialog taskId={task.id} taskName={task.name} />
-                                    )}
+                                    <div>
+                                        <CardTitle className="text-lg">{task.name}</CardTitle>
+                                        {task.description && <CardDescription>{task.description}</CardDescription>}
+                                    </div>
+                                    <div className="flex items-center">
+                                        <CommentsSheet task={task} userRole={userRole} />
+                                        {userRole === 'Admin' && (
+                                            <>
+                                                <EditTaskDialog task={task} />
+                                                <DeleteTaskDialog taskId={task.id} taskName={task.name} />
+                                            </>
+                                        )}
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex justify-between items-center">
@@ -209,26 +221,26 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                         <div className="flex items-center gap-6">
                              {group.assigner && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
-                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
                                     <div className="flex flex-col text-xs text-right">
                                         <span>Assigned by</span>
                                         <span className="font-medium text-foreground">{group.assigner.name}</span>
                                     </div>
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
+                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
                                 </div>
                             )}
                             {group.assignee && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
-                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
                                     <div className="flex flex-col text-xs text-right">
                                         <span>Assigned to</span>
                                         <span className="font-medium text-foreground">{group.assignee.name}</span>
                                     </div>
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
+                                        <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
                                 </div>
                             )}
                         </div>
@@ -241,14 +253,17 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                             <TableHead>Task</TableHead>
                             <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-center">Change Status</TableHead>
-                            {userRole === 'Admin' && <TableHead className="text-right">Actions</TableHead>}
+                            <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {group.tasks.map(task => {
                                 return (
                                     <TableRow key={task.id}>
-                                        <TableCell className="font-medium">{task.name}</TableCell>
+                                        <TableCell className="font-medium max-w-xs">
+                                            <p className="font-semibold truncate">{task.name}</p>
+                                            {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-center">
                                                 <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Needs Review' ? 'animate-pulse' : ''}>
@@ -275,11 +290,17 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                             </Select>
                                             </div>
                                         </TableCell>
-                                        {userRole === 'Admin' && (
-                                            <TableCell className="text-right">
-                                            <DeleteTaskDialog taskId={task.id} taskName={task.name} />
-                                            </TableCell>
-                                        )}
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end">
+                                                <CommentsSheet task={task} userRole={userRole} />
+                                                {userRole === 'Admin' && (
+                                                    <>
+                                                        <EditTaskDialog task={task} />
+                                                        <DeleteTaskDialog taskId={task.id} taskName={task.name} />
+                                                    </>
+                                                )}
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 );
                             })}
