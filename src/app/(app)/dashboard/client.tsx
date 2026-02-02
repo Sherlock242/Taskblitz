@@ -238,10 +238,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                             value={task.status}
                                         >
                                             <SelectTrigger className="w-[180px]">
-                                              <SelectValue placeholder={task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status} />
+                                              <SelectValue placeholder={task.status} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              <SelectItem value={task.status}>{task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}</SelectItem>
+                                              <SelectItem value={task.status}>{task.status}</SelectItem>
                                               {nextStatuses.map(status => (
                                                 <SelectItem key={status} value={status}>{status}</SelectItem>
                                               ))}
@@ -344,10 +344,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                     value={task.status}
                                                 >
                                                     <SelectTrigger className="w-[180px]">
-                                                    <SelectValue placeholder={task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status} />
+                                                    <SelectValue placeholder={task.status} />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                      <SelectItem value={task.status}>{task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}</SelectItem>
+                                                      <SelectItem value={task.status}>{task.status}</SelectItem>
                                                       {nextStatuses.map(status => (
                                                         <SelectItem key={status} value={status}>{status}</SelectItem>
                                                       ))}

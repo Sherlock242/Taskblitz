@@ -46,7 +46,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
 
-  return <DashboardClient tasks={tasksData as unknown as TaskWithRelations[]} userRole={profile.role} currentUserId={user.id} />;
+  return <DashboardClient tasks={tasksData as unknown as TaskWithRelations[]} userRole={profile.role as User['role']} currentUserId={user.id} />;
 }
 
 
