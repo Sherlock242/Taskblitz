@@ -9,15 +9,18 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { addTemplate, updateTemplate } from './actions';
-import type { Template } from '@/lib/types';
+import type { Template, User } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export function AddTemplateDialog({ template, children }: { template?: Template, children?: React.ReactNode }) {
+type TaskItem = { name: string; user_id: string };
+
+export function AddTemplateDialog({ template, children, users }: { template?: Template, children?: React.ReactNode, users: Pick<User, 'id' | 'name'>[] }) {
     const isEditMode = !!template;
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [tasks, setTasks] = useState<string[]>(['']);
+    const [tasks, setTasks] = useState<TaskItem[]>([{ name: '', user_id: '' }]);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
@@ -26,22 +29,22 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
             if (isEditMode && template) {
                 setName(template.name);
                 setDescription(template.description || '');
-                setTasks(template.tasks.length > 0 ? template.tasks : ['']);
+                setTasks(template.tasks.length > 0 ? template.tasks : [{ name: '', user_id: '' }]);
             } else {
                 setName('');
                 setDescription('');
-                setTasks(['']);
+                setTasks([{ name: '', user_id: '' }]);
             }
         }
     }, [open, template, isEditMode]);
     
-    const handleTaskChange = (index: number, value: string) => {
+    const handleTaskChange = (index: number, field: 'name' | 'user_id', value: string) => {
         const newTasks = [...tasks];
-        newTasks[index] = value;
+        newTasks[index] = { ...newTasks[index], [field]: value };
         setTasks(newTasks);
     };
 
-    const addTask = () => setTasks([...tasks, '']);
+    const addTask = () => setTasks([...tasks, { name: '', user_id: '' }]);
     
     const removeTask = (index: number) => {
         if (tasks.length > 1) {
@@ -50,11 +53,11 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
     };
     
     const handleSubmit = async () => {
-        const filteredTasks = tasks.map(t => t.trim()).filter(t => t);
+        const filteredTasks = tasks.map(t => ({ name: t.name.trim(), user_id: t.user_id })).filter(t => t.name && t.user_id);
         if (!name || filteredTasks.length === 0) {
              toast({
                 title: 'Validation Error',
-                description: 'A template must have a name and at least one task.',
+                description: 'A template must have a name and at least one task with a user assigned.',
                 variant: 'destructive',
             });
             return;
@@ -93,11 +96,11 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
             <DialogTrigger asChild>
                 {trigger}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle className="font-headline">{isEditMode ? 'Edit Template' : 'Create New Template'}</DialogTitle>
                     <DialogDescription>
-                        {isEditMode ? `Editing the "${template?.name}" template.` : 'Define a reusable set of tasks.'}
+                        {isEditMode ? `Editing the "${template?.name}" template.` : 'Define a reusable and sequential set of tasks.'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -116,12 +119,23 @@ export function AddTemplateDialog({ template, children }: { template?: Template,
                         />
                     </div>
                     <div className="grid items-center gap-2">
-                        <Label>Tasks</Label>
-                        <ScrollArea className="h-48 pr-4">
-                            <div className="space-y-2">
+                        <Label>Tasks (in sequential order)</Label>
+                        <ScrollArea className="h-56 pr-4">
+                            <div className="space-y-3">
                                 {tasks.map((task, index) => (
                                     <div key={index} className="flex items-center gap-2">
-                                        <Input value={task} onChange={e => handleTaskChange(index, e.target.value)} placeholder={`Task ${index + 1}`} />
+                                        <span className="text-sm font-medium text-muted-foreground">{index + 1}.</span>
+                                        <Input value={task.name} onChange={e => handleTaskChange(index, 'name', e.target.value)} placeholder={`Task Name`} className="flex-1" />
+                                        <Select value={task.user_id} onValueChange={value => handleTaskChange(index, 'user_id', value)}>
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="Assign to..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {users.map(user => (
+                                                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)} disabled={tasks.length <= 1}>
                                             <Trash2 className="h-4 w-4 text-muted-foreground" />
                                         </Button>

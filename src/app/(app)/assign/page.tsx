@@ -3,38 +3,31 @@ import { AssignForm } from './form';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
-import type { Template, User } from '@/lib/types';
+import type { Template } from '@/lib/types';
 import { redirect } from 'next/navigation';
 
 
 async function AssignData() {
     const supabase = createClient();
-    const [templatesRes, usersRes] = await Promise.all([
-        supabase.from('templates').select('*'),
-        supabase.from('profiles').select('*')
-    ]);
+    const { data: templates, error } = await supabase.from('templates').select('*');
 
-    if (templatesRes.error || usersRes.error) {
-        return <p className="text-destructive text-center">Could not load data for assignment.</p>
+    if (error) {
+        return <p className="text-destructive text-center">Could not load templates for assignment.</p>
     }
 
-    return <AssignForm templates={templatesRes.data as Template[]} users={usersRes.data as User[]} />;
+    return <AssignForm templates={templates as Template[]} />;
 }
 
 function AssignSkeleton() {
     return (
         <Card className="w-full max-w-md">
             <CardHeader>
-                <CardTitle className="font-headline">Instant Assignment</CardTitle>
-                <CardDescription>Quickly assign a full template of tasks to a user.</CardDescription>
+                <CardTitle className="font-headline">Start a Workflow</CardTitle>
+                <CardDescription>Instantiate a task workflow from a template.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6">
                 <div className="grid gap-2">
                     <Skeleton className="h-5 w-24" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-                    <div className="grid gap-2">
-                    <Skeleton className="h-5 w-16" />
                     <Skeleton className="h-10 w-full" />
                 </div>
             </CardContent>

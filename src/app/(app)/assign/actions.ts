@@ -2,10 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import type { TemplateTask } from '@/lib/types';
 
-export async function assignTasks(templateId: string, userId: string) {
-    if (!templateId || !userId) {
-        return { error: { message: 'Please select both a template and a user.' } };
+export async function assignTasks(templateId: string) {
+    if (!templateId) {
+        return { error: { message: 'Please select a template.' } };
     }
 
     const supabase = createClient();
@@ -16,38 +17,36 @@ export async function assignTasks(templateId: string, userId: string) {
         return { error: { message: 'You must be logged in to assign tasks.' } };
     }
 
-    const [templateRes, userRes] = await Promise.all([
-        supabase.from('templates').select('name, tasks').eq('id', templateId).single(),
-        supabase.from('profiles').select('name').eq('id', userId).single()
-    ]);
+    const { data: template, error: templateError } = await supabase
+        .from('templates')
+        .select('name, tasks')
+        .eq('id', templateId)
+        .single();
 
-    if (templateRes.error || !templateRes.data || userRes.error || !userRes.data) {
-        return { error: { message: 'Invalid template or user selected.' } };
+    if (templateError || !template) {
+        return { error: { message: 'Invalid template selected.' } };
     }
     
-    const template = templateRes.data;
-    const user = userRes.data;
+    const templateTasks = template.tasks as TemplateTask[];
 
-    const newTasks = template.tasks.map((taskName, index) => ({
-        name: taskName,
+    if (!templateTasks || templateTasks.length === 0) {
+        return { error: { message: 'The selected template has no tasks.' } };
+    }
+
+    const newTasks = templateTasks.map((task, index) => ({
+        name: task.name,
         template_id: templateId,
-        user_id: userId,
-        primary_assignee_id: userId,
-        status: index === 0 ? 'Assigned' : 'To Do', // First task is active, rest are pending
+        user_id: task.user_id,
+        primary_assignee_id: task.user_id,
+        status: 'Assigned',
         assigned_by: adminUser.id,
         position: index,
     }));
 
-    // In a real scenario, you might want to use a status like 'Pending' or 'Blocked'
-    // For now, we'll use 'To Do' as a stand-in for tasks that are not yet active
-    // and convert them to 'Assigned' as the workflow progresses.
-    const tasksToInsert = newTasks.map(task => ({
-      ...task,
-      status: task.position === 0 ? 'Assigned' : 'Assigned',
-    }))
+    // The first task is set to 'Assigned', subsequent tasks are also 'Assigned'
+    // but the UI logic will prevent them from being actioned until the previous one is approved.
 
-
-    const { error } = await supabase.from('tasks').insert(tasksToInsert);
+    const { error } = await supabase.from('tasks').insert(newTasks);
 
     if (error) {
         return { error: { message: `Error assigning tasks: ${error.message}` } };
@@ -55,5 +54,5 @@ export async function assignTasks(templateId: string, userId: string) {
 
     revalidatePath('/dashboard');
 
-    return { data: { message: `Assigned ${template.tasks.length} tasks from "${template.name}" to ${user.name}.` } };
+    return { data: { message: `Assigned ${templateTasks.length} tasks from "${template.name}".` } };
 }

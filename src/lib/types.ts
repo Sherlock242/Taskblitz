@@ -6,11 +6,16 @@ export type User = {
   role: 'Admin' | 'Member';
 };
 
+export type TemplateTask = {
+  name: string;
+  user_id: string;
+};
+
 export type Template = {
   id: string;
   name: string;
   description: string;
-  tasks: string[];
+  tasks: TemplateTask[];
 };
 
 export type Task = {

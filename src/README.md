@@ -89,7 +89,7 @@ CREATE TABLE public.templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     description TEXT,
-    tasks TEXT[] NOT NULL,
+    tasks JSONB NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

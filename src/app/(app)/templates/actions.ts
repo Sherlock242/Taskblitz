@@ -2,8 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import type { TemplateTask } from '@/lib/types';
 
-export async function addTemplate(name: string, description: string, tasks: string[]) {
+export async function addTemplate(name: string, description: string, tasks: TemplateTask[]) {
   const supabase = createClient();
   
   if (!name || tasks.length === 0) {
@@ -27,7 +28,7 @@ export async function addTemplate(name: string, description: string, tasks: stri
   return { data };
 }
 
-export async function updateTemplate(id: string, name: string, description: string, tasks: string[]) {
+export async function updateTemplate(id: string, name: string, description: string, tasks: TemplateTask[]) {
   const supabase = createClient();
 
   if (!name || tasks.length === 0) {
