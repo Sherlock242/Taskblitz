@@ -14,7 +14,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
 
   const { data: task, error: taskError } = await supabase
     .from('tasks')
-    .select('user_id, assigned_by, primary_assignee_id, status')
+    .select('user_id, primary_assignee_id, status')
     .eq('id', taskId)
     .single();
 
@@ -22,41 +22,55 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: `Task not found: ${taskError?.message}` } };
   }
 
+  // Ensure the user changing the status is the one the task is assigned to.
+  if (currentUser.id !== task.user_id) {
+      return { error: { message: 'You can only update tasks assigned to you.'}};
+  }
+
   let updatePayload: Partial<Task> = {
     status: newStatus,
     updated_at: new Date().toISOString(),
   };
 
-  // Case 1: Primary assignee completes the task -> send to reviewer for approval
+  // --- Peer Review Handoff Logic ---
+
+  // Case 1: Primary assignee completes the task -> send to a peer for review
   if (
     newStatus === 'Done' &&
-    currentUser.id === task.primary_assignee_id &&
-    task.assigned_by // Ensure there is a reviewer
+    task.status !== 'Needs Review' && // Prevent loops
+    currentUser.id === task.primary_assignee_id
   ) {
-    updatePayload.status = 'Needs Review';
-    updatePayload.user_id = task.assigned_by; // Reassign to the reviewer
+    // Find another 'Member' to review the task.
+    const { data: peerReviewer, error: peerError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'Member')
+      .neq('id', currentUser.id) // Exclude the current user
+      .limit(1)
+      .single();
+    
+    if (peerReviewer && !peerError) {
+      // A peer was found, so send it for review.
+      updatePayload.status = 'Needs Review';
+      updatePayload.user_id = peerReviewer.id;
+    }
+    // If no peer is found, the status will just be updated to 'Done'.
   }
   // Case 2: Reviewer requests changes -> send back to original assignee
   else if (
     (newStatus === 'To Do' || newStatus === 'In Progress') &&
-    currentUser.id === task.assigned_by &&
     task.status === 'Needs Review' &&
     task.primary_assignee_id
   ) {
     updatePayload.user_id = task.primary_assignee_id; // Reassign back
   }
-  // Case 3: Reviewer gives final approval
+  // Case 3: Reviewer gives final approval -> task is marked 'Done'
   else if (
     newStatus === 'Done' &&
-    currentUser.id === task.assigned_by &&
     task.status === 'Needs Review'
   ) {
-    // The status is already 'Done' in the payload, so we just let it proceed.
-    // The task remains assigned to the reviewer, marking them as the final approver.
-  }
-  // Default case: any other status change not covered by the handoff logic
-  else {
-    // Just update status and timestamp
+    // The payload already has status: 'Done'. The task remains assigned to the reviewer,
+    // marking them as the final approver.
   }
   
   const { error } = await supabase
