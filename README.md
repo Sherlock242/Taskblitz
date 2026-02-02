@@ -121,8 +121,11 @@ CREATE TABLE public.comments (
 
 -- 2. SET UP AUTH TRIGGERS
 
+-- Drop trigger if it exists, it will be recreated
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
 -- Function to create a profile for a new user
-create function public.handle_new_user()
+create or replace function public.handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (id, name, email, avatar_url, role)
