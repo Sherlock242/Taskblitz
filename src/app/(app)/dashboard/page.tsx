@@ -28,7 +28,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load your profile.</p>;
   }
 
-  let query = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), templates(name, description)');
+  let query = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), templates(name, description)');
 
   if (profile.role === 'Member') {
     // A member should see tasks they are currently assigned to,

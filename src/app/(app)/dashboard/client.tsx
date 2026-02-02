@@ -39,6 +39,7 @@ export type TaskWithRelations = Task & {
   profiles: Pick<User, 'name' | 'avatar_url'> | null;
   assigner: Pick<User, 'name' | 'avatar_url'> | null;
   templates: Pick<Template, 'name' | 'description'> | null;
+  primary_assignee: Pick<User, 'name' | 'avatar_url'> | null;
 };
 
 export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: TaskWithRelations[], userRole: User['role'], currentUserId: string }) {
@@ -67,8 +68,11 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     
     tasks.forEach(task => {
         const templateId = task.template_id || 'unassigned';
-        const userId = task.primary_assignee_id || task.user_id;
-        const groupKey = `${templateId}-${userId}`;
+        const primaryAssigneeId = task.primary_assignee_id;
+        
+        if (!primaryAssigneeId) return;
+
+        const groupKey = `${templateId}-${primaryAssigneeId}`;
 
         const templateName = task.templates?.name || 'General Tasks';
         const templateDescription = task.templates?.description || 'Tasks not associated with a template.';
@@ -80,24 +84,11 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                 description: templateDescription,
                 tasks: [],
                 assigner: task.assigner,
-                assignee: task.profiles,
+                assignee: task.primary_assignee,
             };
         }
         groups[groupKey].tasks.push(task);
     });
-
-    for (const key in groups) {
-      const group = groups[key];
-      const primaryAssigneeId = group.tasks[0]?.primary_assignee_id;
-      if (primaryAssigneeId) {
-        const primaryAssigneeTask = tasks.find(t => t.id === group.tasks[0]?.id);
-        if (primaryAssigneeTask && primaryAssigneeTask.primary_assignee_id) {
-          const primaryAssigneeProfile = tasks.find(t => t.user_id === primaryAssigneeTask.primary_assignee_id)?.profiles
-            ?? group.assignee; // Fallback to current assignee if not found
-          group.assignee = primaryAssigneeProfile;
-        }
-      }
-    }
 
     return Object.values(groups);
   }, [tasks]);
@@ -233,20 +224,22 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                         <Select
                                             onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
                                             disabled={isPending}
+                                            value={task.status}
                                         >
-                                            <SelectTrigger className="w-[140px] h-9">
+                                            <SelectTrigger className="w-[180px]">
                                               <SelectValue placeholder={task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status} />
                                             </SelectTrigger>
                                             <SelectContent>
+                                              <SelectItem value={task.status}>{task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}</SelectItem>
                                               {nextStatuses.map(status => (
                                                 <SelectItem key={status} value={status}>{status}</SelectItem>
                                               ))}
                                             </SelectContent>
                                         </Select>
                                     ) : (
-                                        <div className="w-[140px] h-9 flex items-center justify-end">
+                                        <div className="w-[180px] h-9 flex items-center justify-end">
                                             <span className="text-sm text-muted-foreground pr-2">
-                                                {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : '--'}
+                                                {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
                                             </span>
                                         </div>
                                     )}
@@ -337,11 +330,13 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                 <Select
                                                     onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
                                                     disabled={isPending}
+                                                    value={task.status}
                                                 >
                                                     <SelectTrigger className="w-[180px]">
                                                     <SelectValue placeholder={task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status} />
                                                     </SelectTrigger>
                                                     <SelectContent>
+                                                      <SelectItem value={task.status}>{task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}</SelectItem>
                                                       {nextStatuses.map(status => (
                                                         <SelectItem key={status} value={status}>{status}</SelectItem>
                                                       ))}
@@ -349,7 +344,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                 </Select>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">
-                                                    {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : '--'}
+                                                    {task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status}
                                                 </span>
                                             )}
                                             </div>
