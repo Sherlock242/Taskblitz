@@ -29,6 +29,7 @@ export type Task = {
   user_id: string;
   assigned_by: string | null;
   primary_assignee_id: string | null;
+  reviewer_id: string | null;
   status: 'Assigned' | 'In Progress' | 'Submitted for Review' | 'Changes Requested' | 'Approved' | 'Completed';
   created_at: string;
   updated_at: string | null;

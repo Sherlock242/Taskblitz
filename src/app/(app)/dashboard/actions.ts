@@ -37,35 +37,11 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     updatePayload.status = 'In Progress';
   }
   else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee) {
-    // Find the next task in the sequence to determine the reviewer.
-    const { data: allTasksInWorkflow } = await supabase
-      .from('tasks')
-      .select('id, position, user_id')
-      .eq('workflow_instance_id', task.workflow_instance_id)
-      .order('position', { ascending: true });
-
-    if (!allTasksInWorkflow) {
-       return { error: { message: 'Could not find other tasks in this template workflow.' }};
+    if (!task.reviewer_id) {
+      return { error: { message: 'No reviewer has been designated for this workflow.' } };
     }
-    
-    const currentTaskIndex = allTasksInWorkflow.findIndex(t => t.id === task.id);
-    const nextTask = allTasksInWorkflow[currentTaskIndex + 1];
-
-    let reviewerId;
-    if (nextTask) {
-        // The reviewer is the user assigned to the next task.
-        reviewerId = nextTask.user_id;
-    } else {
-        // This is the last task, assign to the Admin for final review.
-        reviewerId = task.assigned_by;
-    }
-
-    if (!reviewerId) {
-      return { error: { message: 'Could not determine a reviewer for this task.' } };
-    }
-
     updatePayload.status = 'Submitted for Review';
-    updatePayload.user_id = reviewerId;
+    updatePayload.user_id = task.reviewer_id; // Assign to the designated reviewer
   }
   else if (newStatus === 'Changes Requested' && task.status === 'Submitted for Review' && isReviewer) {
     updatePayload.status = 'Assigned'; // Reset to "To Do" state for the original user
@@ -87,12 +63,14 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     const nextTask = allTasksInWorkflow[currentTaskIndex + 1];
 
     if (nextTask) {
-      // It's not the last task, so just mark it as Approved.
-      // The UI will handle enabling the next task for its assigned user.
+      // It's not the last task, so mark it as Approved and hand it back to the primary user.
+      // The UI will handle enabling the next task in the sequence for its assigned user.
       updatePayload.status = 'Approved';
+      updatePayload.user_id = task.primary_assignee_id;
     } else {
       // This is the last task, so mark it as Completed
       updatePayload.status = 'Completed';
+      updatePayload.user_id = task.primary_assignee_id;
     }
   }
   else {

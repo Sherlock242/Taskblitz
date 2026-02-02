@@ -5,9 +5,15 @@ import { revalidatePath } from 'next/cache';
 import type { TemplateTask } from '@/lib/types';
 import { randomUUID } from 'crypto';
 
-export async function assignTasks(templateId: string) {
+export async function assignTasks(templateId: string, primaryAssigneeId: string, reviewerId: string) {
     if (!templateId) {
         return { error: { message: 'Please select a template.' } };
+    }
+    if (!primaryAssigneeId) {
+        return { error: { message: 'Please select a primary assignee.' } };
+    }
+    if (!reviewerId) {
+        return { error: { message: 'Please select a reviewer.' } };
     }
 
     const supabase = createClient();
@@ -35,17 +41,14 @@ export async function assignTasks(templateId: string) {
     }
 
     const workflowInstanceId = randomUUID();
-    const primaryAssigneeForWorkflow = templateTasks[0]?.user_id;
 
-    if (!primaryAssigneeForWorkflow) {
-        return { error: { message: 'The first task in the template must have a user assigned.' } };
-    }
-
+    // All tasks in the workflow are initially assigned to the primary assignee.
     const newTasks = templateTasks.map((task, index) => ({
         name: task.name,
         template_id: templateId,
-        user_id: task.user_id,
-        primary_assignee_id: primaryAssigneeForWorkflow,
+        user_id: primaryAssigneeId,
+        primary_assignee_id: primaryAssigneeId,
+        reviewer_id: reviewerId,
         status: 'Assigned',
         assigned_by: adminUser.id,
         position: index,

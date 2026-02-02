@@ -2,21 +2,23 @@
 
 import React, { useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { Template } from '@/lib/types';
+import type { Template, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { assignTasks } from './actions';
 
-export function AssignForm({ templates }: { templates: Template[] }) {
+export function AssignForm({ templates, users }: { templates: Template[], users: User[] }) {
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+    const [selectedAssignee, setSelectedAssignee] = useState<string>('');
+    const [selectedReviewer, setSelectedReviewer] = useState<string>('');
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
 
     const handleAssign = async () => {
         startTransition(async () => {
-            const result = await assignTasks(selectedTemplate);
+            const result = await assignTasks(selectedTemplate, selectedAssignee, selectedReviewer);
             if (result.error) {
                 toast({
                     title: 'Error',
@@ -29,9 +31,13 @@ export function AssignForm({ templates }: { templates: Template[] }) {
                     description: result.data.message,
                 });
                  setSelectedTemplate('');
+                 setSelectedAssignee('');
+                 setSelectedReviewer('');
             }
         });
     };
+
+    const canSubmit = selectedTemplate && selectedAssignee && selectedReviewer;
 
     return (
         <Card className="w-full max-w-md">
@@ -44,7 +50,7 @@ export function AssignForm({ templates }: { templates: Template[] }) {
                     <Label htmlFor="template">Task Template</Label>
                     <Select value={selectedTemplate} onValueChange={setSelectedTemplate} disabled={isPending}>
                         <SelectTrigger id="template">
-                            <SelectValue placeholder="Select a template to start" />
+                            <SelectValue placeholder="Select a template" />
                         </SelectTrigger>
                         <SelectContent>
                             {templates.map(template => (
@@ -53,9 +59,35 @@ export function AssignForm({ templates }: { templates: Template[] }) {
                         </SelectContent>
                     </Select>
                 </div>
+                 <div className="grid gap-2">
+                    <Label htmlFor="assignee">Primary Assignee</Label>
+                    <Select value={selectedAssignee} onValueChange={setSelectedAssignee} disabled={isPending}>
+                        <SelectTrigger id="assignee">
+                            <SelectValue placeholder="Select who will do the work" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {users.map(user => (
+                                <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="reviewer">Reviewer</Label>
+                    <Select value={selectedReviewer} onValueChange={setSelectedReviewer} disabled={isPending}>
+                        <SelectTrigger id="reviewer">
+                            <SelectValue placeholder="Select who will review the work" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {users.map(user => (
+                                <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardContent>
             <CardFooter>
-                <Button className="w-full" onClick={handleAssign} disabled={isPending || !selectedTemplate}>
+                <Button className="w-full" onClick={handleAssign} disabled={isPending || !canSubmit}>
                     {isPending ? 'Starting...' : 'Start Workflow'}
                 </Button>
             </CardFooter>

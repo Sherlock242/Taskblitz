@@ -3,19 +3,20 @@ import { AssignForm } from './form';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
-import type { Template } from '@/lib/types';
+import type { Template, User } from '@/lib/types';
 import { redirect } from 'next/navigation';
 
 
 async function AssignData() {
     const supabase = createClient();
-    const { data: templates, error } = await supabase.from('templates').select('*');
+    const { data: templates, error: templatesError } = await supabase.from('templates').select('*');
+    const { data: users, error: usersError } = await supabase.from('profiles').select('*');
 
-    if (error) {
-        return <p className="text-destructive text-center">Could not load templates for assignment.</p>
+    if (templatesError || usersError) {
+        return <p className="text-destructive text-center">Could not load data for assignment.</p>
     }
 
-    return <AssignForm templates={templates as Template[]} />;
+    return <AssignForm templates={templates as Template[]} users={users as User[]} />;
 }
 
 function AssignSkeleton() {
@@ -26,6 +27,14 @@ function AssignSkeleton() {
                 <CardDescription>Instantiate a task workflow from a template.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6">
+                <div className="grid gap-2">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+                <div className="grid gap-2">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
                 <div className="grid gap-2">
                     <Skeleton className="h-5 w-24" />
                     <Skeleton className="h-10 w-full" />

@@ -110,6 +110,7 @@ CREATE TABLE public.tasks (
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     assigned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     primary_assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    reviewer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     status TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,

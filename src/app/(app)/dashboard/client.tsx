@@ -40,6 +40,7 @@ export type TaskWithRelations = Task & {
   assigner: Pick<User, 'name' | 'avatar_url'> | null;
   templates: Pick<Template, 'name' | 'description'> | null;
   primary_assignee: Pick<User, 'name' | 'avatar_url'> | null;
+  reviewer: Pick<User, 'name' | 'avatar_url'> | null;
 };
 
 export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: TaskWithRelations[], userRole: User['role'], currentUserId: string }) {
@@ -64,6 +65,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         tasks: TaskWithRelations[]; 
         assigner: Pick<User, 'name' | 'avatar_url'> | null;
         assignee: Pick<User, 'name' | 'avatar_url'> | null;
+        reviewer: Pick<User, 'name' | 'avatar_url'> | null;
     }> = {};
 
     // First, group all tasks by their workflow instance ID
@@ -88,16 +90,14 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         const templateName = firstTask.templates?.name || 'General Tasks';
         const templateDescription = firstTask.templates?.description || 'Tasks not associated with a template.';
 
-        // The "assignee" for the whole workflow is the primary assignee of the first task.
-        const workflowAssignee = firstTask.primary_assignee;
-
         groups[workflowId] = {
             id: workflowId,
             name: templateName,
             description: templateDescription,
             tasks: workflowTasks,
             assigner: firstTask.assigner,
-            assignee: workflowAssignee,
+            assignee: firstTask.primary_assignee,
+            reviewer: firstTask.reviewer,
         };
     }
 
@@ -106,16 +106,19 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   
   const getNextStatuses = (task: TaskWithRelations): Array<Task['status']> => {
     const isPrimaryAssignee = currentUserId === task.primary_assignee_id;
-    const isReviewer = !isPrimaryAssignee && currentUserId === task.user_id;
+    const isReviewer = currentUserId === task.reviewer_id;
+
+    // The user currently assigned the task
+    const isCurrentUserForTask = currentUserId === task.user_id;
 
     switch (task.status) {
         case 'Assigned':
         case 'Changes Requested':
-            return isPrimaryAssignee ? ['In Progress'] : [];
+            return isPrimaryAssignee && isCurrentUserForTask ? ['In Progress'] : [];
         case 'In Progress':
-            return isPrimaryAssignee ? ['Submitted for Review'] : [];
+            return isPrimaryAssignee && isCurrentUserForTask ? ['Submitted for Review'] : [];
         case 'Submitted for Review':
-            return isReviewer ? ['Approved', 'Changes Requested'] : [];
+            return isReviewer && isCurrentUserForTask ? ['Approved', 'Changes Requested'] : [];
         default:
             return []; // No changes allowed for Approved/Completed tasks from dropdown
     }
@@ -152,12 +155,19 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   );
 
   const isTaskActive = (task: TaskWithRelations, allTasksInGroup: TaskWithRelations[]): boolean => {
-    if (task.status !== 'Assigned') {
-      return true;
+    // A task that is submitted is active for the reviewer
+    if (task.status === 'Submitted for Review') {
+      return currentUserId === task.user_id;
     }
+    // Any other status is active for the primary assignee
+    if (task.user_id !== task.primary_assignee_id) {
+        return false;
+    }
+    // For sequential tasks, the first task is always active for the assignee.
     if (task.position === 0) {
       return true;
     }
+    // Subsequent tasks are active only if the previous one is approved or completed.
     const prevTask = allTasksInGroup.find(t => t.position === (task.position ?? 0) - 1);
     return prevTask?.status === 'Approved' || prevTask?.status === 'Completed';
   };
@@ -175,18 +185,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                             {group.description && <CardDescription>{group.description}</CardDescription>}
                         </div>
                         <div className="flex flex-col gap-4 items-end flex-shrink-0">
-                            {group.assigner && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                     <div className="flex flex-col text-xs text-right">
-                                        <span>Assigned by</span>
-                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
-                                    </div>
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
-                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                </div>
-                            )}
                             {group.assignee && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <div className="flex flex-col text-xs text-right">
@@ -199,6 +197,18 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                     </Avatar>
                                 </div>
                             )}
+                            {group.reviewer && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                     <div className="flex flex-col text-xs text-right">
+                                        <span>Reviewed by</span>
+                                        <span className="font-medium text-foreground">{group.reviewer.name}</span>
+                                    </div>
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.reviewer.avatar_url || undefined} alt={group.reviewer.name ?? ''}/>
+                                        <AvatarFallback>{group.reviewer.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </CardHeader>
@@ -208,7 +218,9 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                         const canUpdate = nextStatuses.length > 0;
                         const active = isTaskActive(task, group.tasks);
                         if (!active && userRole !== 'Admin') return null;
+                        
                         const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
+                        const isReviewStep = task.status === 'Submitted for Review';
 
                         return (
                             <Card key={task.id} className={!active ? 'opacity-50' : ''}>
@@ -230,7 +242,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                 <CardContent>
                                     <div className="flex justify-between items-center">
                                     <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
-                                        {displayStatus}
+                                        {isReviewStep ? `Pending Review` : displayStatus}
                                     </Badge>
                                     {canUpdate && active ? (
                                         <Select
@@ -242,7 +254,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                               <SelectValue placeholder={displayStatus} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              <SelectItem value={task.status}>{displayStatus}</SelectItem>
+                                              <SelectItem value={task.status}>{isReviewStep ? 'Approve / Reject' : displayStatus}</SelectItem>
                                               {nextStatuses.map(status => (
                                                 <SelectItem key={status} value={status}>{status}</SelectItem>
                                               ))}
@@ -279,18 +291,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                             {group.description && <CardDescription>{group.description}</CardDescription>}
                         </div>
                         <div className="flex items-center gap-6">
-                             {group.assigner && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <div className="flex flex-col text-xs text-right">
-                                        <span>Assigned by</span>
-                                        <span className="font-medium text-foreground">{group.assigner.name}</span>
-                                    </div>
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={group.assigner.avatar_url || undefined} alt={group.assigner.name ?? ''}/>
-                                        <AvatarFallback>{group.assigner.name?.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                </div>
-                            )}
                             {group.assignee && (
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <div className="flex flex-col text-xs text-right">
@@ -300,6 +300,18 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                     <Avatar className="h-8 w-8">
                                         <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
                                         <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                </div>
+                            )}
+                             {group.reviewer && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <div className="flex flex-col text-xs text-right">
+                                        <span>Reviewed by</span>
+                                        <span className="font-medium text-foreground">{group.reviewer.name}</span>
+                                    </div>
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={group.reviewer.avatar_url || undefined} alt={group.reviewer.name ?? ''}/>
+                                        <AvatarFallback>{group.reviewer.name?.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                 </div>
                             )}
@@ -322,7 +334,9 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                 const canUpdate = nextStatuses.length > 0;
                                 const active = isTaskActive(task, group.tasks);
                                 if (!active && userRole !== 'Admin') return null;
+                                
                                 const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
+                                const isReviewStep = task.status === 'Submitted for Review';
 
                                 return (
                                     <TableRow key={task.id} className={!active ? 'opacity-50' : ''}>
@@ -333,7 +347,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                         <TableCell>
                                             <div className="flex items-center justify-center">
                                                 <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Submitted for Review' ? 'animate-pulse' : ''}>
-                                                {displayStatus}
+                                                {isReviewStep ? `Pending Review` : displayStatus}
                                                 </Badge>
                                             </div>
                                         </TableCell>
@@ -349,7 +363,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                     <SelectValue placeholder={displayStatus} />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                      <SelectItem value={task.status}>{displayStatus}</SelectItem>
+                                                      <SelectItem value={task.status}>{isReviewStep ? 'Approve / Reject' : displayStatus}</SelectItem>
                                                       {nextStatuses.map(status => (
                                                         <SelectItem key={status} value={status}>{status}</SelectItem>
                                                       ))}
