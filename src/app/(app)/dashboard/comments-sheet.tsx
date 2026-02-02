@@ -1,8 +1,7 @@
-
 "use client"
 
 import React, { useState, useTransition, useEffect, useRef } from "react"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
@@ -74,20 +73,20 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
     };
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
                 <Button variant="ghost" size="icon">
                     <MessageSquare className="h-4 w-4" />
                     <span className="sr-only">Comments</span>
                 </Button>
-            </SheetTrigger>
-            <SheetContent className="flex flex-col">
-                <SheetHeader>
-                    <SheetTitle>Comments for "{task.name}"</SheetTitle>
-                    <SheetDescription>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Comments for "{task.name}"</DialogTitle>
+                    <DialogDescription>
                         Discuss the task with your team members.
-                    </SheetDescription>
-                </SheetHeader>
+                    </DialogDescription>
+                </DialogHeader>
                 <ScrollArea className="flex-1 pr-4 -mr-6" ref={scrollAreaRef}>
                      <div className="space-y-4 py-4">
                         {isLoading ? (
@@ -117,7 +116,7 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
                         )}
                     </div>
                 </ScrollArea>
-                <SheetFooter className="mt-auto pt-4 border-t">
+                <DialogFooter className="mt-auto pt-4 border-t">
                     <form action={handleAddComment} className="flex w-full items-center space-x-2">
                         <Input 
                             id="comment" 
@@ -131,8 +130,8 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
                             <span className="sr-only">Send</span>
                         </Button>
                     </form>
-                </SheetFooter>
-            </SheetContent>
-        </Sheet>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
