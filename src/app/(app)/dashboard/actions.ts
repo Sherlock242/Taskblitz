@@ -95,7 +95,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
 
   if (error) {
     console.error('Error updating task status', error);
-    return { error: { message: 'Failed to update task status.' } };
+    return { error: { message: `Failed to update task status: ${error.message}` } };
   }
 
   revalidatePath('/dashboard');
