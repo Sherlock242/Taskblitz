@@ -217,7 +217,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                         const nextStatuses = getNextStatuses(task);
                         const canUpdate = nextStatuses.length > 0;
                         const active = isTaskActive(task, group.tasks);
-                        if (!active && userRole !== 'Admin') return null;
                         
                         const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                         const isReviewStep = task.status === 'Submitted for Review';
@@ -333,7 +332,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                 const nextStatuses = getNextStatuses(task);
                                 const canUpdate = nextStatuses.length > 0;
                                 const active = isTaskActive(task, group.tasks);
-                                if (!active && userRole !== 'Admin') return null;
                                 
                                 const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                 const isReviewStep = task.status === 'Submitted for Review';
@@ -398,5 +396,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
      </div>
   );
 }
+
+    
 
     

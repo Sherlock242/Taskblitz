@@ -28,15 +28,32 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load your profile.</p>;
   }
 
-  let query = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
+  let tasksQuery = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
 
   if (profile.role === 'Member') {
-    // A member should see tasks they are currently assigned to (for doing or reviewing),
-    // or tasks they are the primary owner of. This ensures they see the full workflow they are part of.
-    query = query.or(`user_id.eq.${user.id},primary_assignee_id.eq.${user.id}`);
+    // For members, first find all workflow instances they are a part of.
+    // A user is part of a workflow if they are the primary assignee, the designated reviewer, or directly assigned a task.
+    const { data: workflowIdsData, error: workflowIdsError } = await supabase
+      .from('tasks')
+      .select('workflow_instance_id')
+      .or(`primary_assignee_id.eq.${user.id},reviewer_id.eq.${user.id},user_id.eq.${user.id}`);
+
+    if (workflowIdsError) {
+        console.error('Error fetching workflow IDs', workflowIdsError);
+        return <p className="text-destructive text-center">Could not load tasks.</p>;
+    }
+    
+    const workflowIds = [...new Set(workflowIdsData.map(t => t.workflow_instance_id))];
+
+    if (workflowIds.length === 0) {
+        return <DashboardClient tasks={[]} userRole={profile.role as User['role']} currentUserId={user.id} />;
+    }
+
+    // Then, fetch all tasks for those workflows.
+    tasksQuery = tasksQuery.in('workflow_instance_id', workflowIds);
   }
 
-  const { data: tasksData, error: tasksError } = await query
+  const { data: tasksData, error: tasksError } = await tasksQuery
     .order('created_at', { ascending: true })
     .order('position', { ascending: true, nullsFirst: false });
 
@@ -74,5 +91,7 @@ function DashboardSkeleton() {
     </Card>
   )
 }
+
+    
 
     
