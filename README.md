@@ -54,7 +54,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 
 ### 4. Set Up the Database Schema
 
-You need to run a SQL script in your Supabase project to create the necessary tables (`profiles`, `templates`, `tasks`) and set up permissions.
+You need to run a SQL script in your Supabase project to create the necessary tables (`profiles`, `templates`, `tasks`), set up permissions, and configure storage.
 
 1.  In your Supabase project dashboard, navigate to the **SQL Editor** (the database icon).
 2.  Click **New query**.
@@ -230,4 +230,4 @@ Once you have completed the setup, you can start the development server:
 npm run dev
 ```
 
-The application will be available at [https://taskblitsz.netlify.app/login](https://taskblitsz.netlify.app/login).
+The application will be available at [http://localhost:9002](http://localhost:9002).
