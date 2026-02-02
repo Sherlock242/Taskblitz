@@ -36,23 +36,38 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     updatePayload.status = 'In Progress';
   }
   else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee) {
-    const { data: peerReviewer, error: peerError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('role', 'Member')
-      .neq('id', currentUser.id)
-      .limit(1)
-      .single();
+    // Find the next task in the sequence to determine the reviewer.
+    const { data: allTasksInWorkflow } = await supabase
+      .from('tasks')
+      .select('id, position, user_id')
+      .eq('template_id', task.template_id!)
+      .order('position', { ascending: true });
+
+    if (!allTasksInWorkflow) {
+       return { error: { message: 'Could not find other tasks in this template workflow.' }};
+    }
     
-    if (peerError || !peerReviewer) {
-      return { error: { message: 'Could not find a peer to review this task. Approving automatically.' } };
+    const currentTaskIndex = allTasksInWorkflow.findIndex(t => t.id === task.id);
+    const nextTask = allTasksInWorkflow[currentTaskIndex + 1];
+
+    let reviewerId;
+    if (nextTask) {
+        // The reviewer is the user assigned to the next task.
+        reviewerId = nextTask.user_id;
+    } else {
+        // This is the last task, assign to the Admin for final review.
+        reviewerId = task.assigned_by;
+    }
+
+    if (!reviewerId) {
+      return { error: { message: 'Could not determine a reviewer for this task.' } };
     }
 
     updatePayload.status = 'Submitted for Review';
-    updatePayload.user_id = peerReviewer.id;
+    updatePayload.user_id = reviewerId;
   }
   else if (newStatus === 'Changes Requested' && task.status === 'Submitted for Review' && isReviewer) {
-    updatePayload.status = 'Changes Requested';
+    updatePayload.status = 'Assigned'; // Reset to "To Do" state for the original user
     updatePayload.user_id = task.primary_assignee_id; // Reassign back to original assignee
   }
   else if (newStatus === 'Approved' && task.status === 'Submitted for Review' && isReviewer) {
@@ -60,8 +75,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     const { data: allTasksInTemplate } = await supabase
       .from('tasks')
       .select('id, position')
-      .eq('template_id', task.template_id)
-      .eq('primary_assignee_id', task.primary_assignee_id)
+      .eq('template_id', task.template_id!)
       .order('position', { ascending: true });
 
     if (!allTasksInTemplate) {
