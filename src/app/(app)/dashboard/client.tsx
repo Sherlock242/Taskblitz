@@ -220,7 +220,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                       </div>
                                       <div className="flex items-center">
                                           <CommentsSheet task={task} userRole={userRole} />
-                                          {userRole === 'Admin' && !isReadOnly && (
+                                          {userRole === 'Admin' && (
                                               <>
                                                   <EditTaskDialog task={task} />
                                                   <DeleteTaskDialog taskId={task.id} taskName={task.name} />
@@ -326,7 +326,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                   const isReviewStep = task.status === 'Submitted for Review';
 
                                   return (
-                                      <TableRow key={task.id} className={!actionable ? 'opacity-60' : ''}>
+                                      <TableRow key={task.id} className={!actionable && isReadOnly ? 'opacity-60' : ''}>
                                           <TableCell className="font-medium max-w-xs">
                                               <p className="font-semibold truncate">{task.name}</p>
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
@@ -369,7 +369,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                           <TableCell className="text-right">
                                               <div className="flex items-center justify-end">
                                                   <CommentsSheet task={task} userRole={userRole} />
-                                                  {userRole === 'Admin' && actionable && (
+                                                  {userRole === 'Admin' && (
                                                       <>
                                                           <EditTaskDialog task={task} />
                                                           <DeleteTaskDialog taskId={task.id} taskName={task.name} />
@@ -432,4 +432,5 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   );
 }
 
+    
     
