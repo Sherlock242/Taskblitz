@@ -20,6 +20,8 @@ const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'ou
       return 'secondary';
     case 'In Progress':
       return 'default';
+    case 'Needs Review':
+      return 'default';
     case 'To Do':
       return 'outline';
     default:
@@ -163,9 +165,9 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex justify-between items-center">
-                                    <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' ? 'animate-pulse' : ''}>
+                                    <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Needs Review' ? 'animate-pulse' : ''}>
                                         {task.status}
-                                        </Badge>
+                                    </Badge>
                                     <Select
                                         defaultValue={task.status}
                                         onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
@@ -177,6 +179,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                         <SelectContent>
                                         <SelectItem value="To Do">To Do</SelectItem>
                                         <SelectItem value="In Progress">In Progress</SelectItem>
+                                        <SelectItem value="Needs Review">Needs Review</SelectItem>
                                         <SelectItem value="Done">Done</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -248,7 +251,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                         <TableCell className="font-medium">{task.name}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-center">
-                                                <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' ? 'animate-pulse' : ''}>
+                                                <Badge variant={getStatusVariant(task.status)} className={task.status === 'In Progress' || task.status === 'Needs Review' ? 'animate-pulse' : ''}>
                                                 {task.status}
                                                 </Badge>
                                             </div>
@@ -266,6 +269,7 @@ export function DashboardClient({ tasks, userRole }: { tasks: TaskWithRelations[
                                                 <SelectContent>
                                                 <SelectItem value="To Do">To Do</SelectItem>
                                                 <SelectItem value="In Progress">In Progress</SelectItem>
+                                                <SelectItem value="Needs Review">Needs Review</SelectItem>
                                                 <SelectItem value="Done">Done</SelectItem>
                                                 </SelectContent>
                                             </Select>

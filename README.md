@@ -90,6 +90,7 @@ CREATE TABLE public.tasks (
     template_id UUID REFERENCES templates(id) ON DELETE SET NULL,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     assigned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    primary_assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     status TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
@@ -135,7 +136,7 @@ CREATE POLICY "Admins can manage templates." ON templates FOR ALL USING ( (selec
 CREATE POLICY "Users can view their own assigned tasks." ON tasks FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Admins can view all tasks." ON tasks FOR SELECT USING ((select role from profiles where id = auth.uid()) = 'Admin');
 CREATE POLICY "Users can insert tasks." ON tasks FOR INSERT WITH CHECK (true);
-CREATE POLICY "Users can update their own tasks." ON tasks FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update their own tasks." ON tasks FOR UPDATE USING (auth.uid() = user_id OR auth.uid() = assigned_by);
 CREATE POLICY "Admins can delete tasks." ON tasks FOR DELETE USING ((select role from profiles where id = auth.uid()) = 'Admin');
 
 

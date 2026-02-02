@@ -32,6 +32,7 @@ export async function assignTasks(templateId: string, userId: string) {
         name: taskName,
         template_id: templateId,
         user_id: userId,
+        primary_assignee_id: userId,
         status: 'To Do',
         assigned_by: adminUser.id,
         position: index,
