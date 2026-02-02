@@ -28,42 +28,22 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load your profile.</p>;
   }
 
-  let allTasks: Task[] = [];
-  let tasksError: any = null;
+  let query = supabase
+    .from('tasks')
+    .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
 
-  if (profile.role === 'Admin') {
-    // Admin: Fetch all tasks
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
-    allTasks = data || [];
-    tasksError = error;
-  } else {
-    // Member: Fetch only assigned tasks and tasks for review
-    const { data: myTasks, error: myTasksError } = await supabase
-      .from('tasks')
-      .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)')
-      .eq('user_id', user.id);
-
-    const { data: reviewTasks, error: reviewTasksError } = await supabase
-      .from('tasks')
-      .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)')
-      .eq('reviewer_id', user.id)
-      .eq('status', 'Submitted for Review');
-    
-    tasksError = myTasksError || reviewTasksError;
-    if (!tasksError) {
-        allTasks = [...(myTasks || []), ...(reviewTasks || [])];
-    }
+  if (profile.role !== 'Admin') {
+    query = query.or(`primary_assignee_id.eq.${user.id},reviewer_id.eq.${user.id}`);
   }
 
-
+  const { data: allTasks, error: tasksError } = await query;
+  
   if (tasksError) {
     console.error('Error fetching tasks', tasksError);
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
   
-  // Merge and de-duplicate tasks (important for Members, harmless for Admins)
+  // Merge and de-duplicate tasks
   const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
 
   // Sort tasks
@@ -104,3 +84,5 @@ function DashboardSkeleton() {
     </Card>
   )
 }
+
+    

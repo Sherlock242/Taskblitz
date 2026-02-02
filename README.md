@@ -195,7 +195,7 @@ CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING (
 
 -- Create policies for 'tasks'
 CREATE POLICY "Admins can view all tasks." ON public.tasks FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin');
-CREATE POLICY "Users can view their own assigned or reviewable tasks." ON public.tasks FOR SELECT USING (auth.uid() = user_id OR (auth.uid() = reviewer_id AND status = 'Submitted for Review'));
+CREATE POLICY "Users can view their own assigned or reviewable tasks." ON public.tasks FOR SELECT USING (auth.uid() = primary_assignee_id OR (auth.uid() = reviewer_id AND status = 'Submitted for Review'));
 
 CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Users involved in a task can update it." ON public.tasks
@@ -293,3 +293,5 @@ npm run dev
 ```
 
 The application will be available at [http://localhost:9002](http://localhost:9002).
+
+    

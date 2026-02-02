@@ -60,7 +60,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   };
 
   const getNextStatuses = (task: TaskWithRelations): Array<Task['status']> => {
-    const isPrimaryAssignee = currentUserId === task.user_id;
+    const isPrimaryAssignee = currentUserId === task.primary_assignee_id;
     const isReviewer = currentUserId === task.reviewer_id;
 
     switch (task.status) {
@@ -124,7 +124,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     const myWorkflowIds = new Set<string>();
     tasks.forEach(task => {
         if (!task.workflow_instance_id) return;
-        if (task.user_id === currentUserId || task.reviewer_id === currentUserId) {
+        if (task.primary_assignee_id === currentUserId || task.reviewer_id === currentUserId) {
             myWorkflowIds.add(task.workflow_instance_id);
         }
     });
@@ -207,7 +207,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       {group.tasks.map((task: TaskWithRelations) => {
                           const nextStatuses = getNextStatuses(task);
                           const canUpdate = !isReadOnly && nextStatuses.length > 0;
-                          const actionable = !isReadOnly && getNextStatuses(task).length > 0;
+                          const actionable = !isReadOnly && (currentUserId === task.primary_assignee_id || currentUserId === task.reviewer_id);
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
 
@@ -321,12 +321,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               {group.tasks.map((task: TaskWithRelations) => {
                                   const nextStatuses = getNextStatuses(task);
                                   const canUpdate = !isReadOnly && nextStatuses.length > 0;
-                                  const actionable = !isReadOnly && getNextStatuses(task).length > 0;
+                                  const actionable = !isReadOnly && (currentUserId === task.primary_assignee_id || currentUserId === task.reviewer_id);
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
 
                                   return (
-                                      <TableRow key={task.id} className={!actionable && !isReadOnly ? 'opacity-60' : ''}>
+                                      <TableRow key={task.id} className={!actionable ? 'opacity-60' : ''}>
                                           <TableCell className="font-medium max-w-xs">
                                               <p className="font-semibold truncate">{task.name}</p>
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
@@ -369,7 +369,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                           <TableCell className="text-right">
                                               <div className="flex items-center justify-end">
                                                   <CommentsSheet task={task} userRole={userRole} />
-                                                  {userRole === 'Admin' && !isReadOnly && (
+                                                  {userRole === 'Admin' && actionable && (
                                                       <>
                                                           <EditTaskDialog task={task} />
                                                           <DeleteTaskDialog taskId={task.id} taskName={task.name} />
@@ -421,7 +421,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
       </div>
       
       {userRole === 'Admin' && otherWorkflows.length > 0 && (
-        <div className="mt-8">
+        <div>
           <PageHeader title="Admin Overview" description="A read-only overview of all other active workflows." />
           <div className="mt-4">
             <WorkflowGroupList workflows={otherWorkflows} isReadOnly={true} />
@@ -431,3 +431,5 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
+
+    
