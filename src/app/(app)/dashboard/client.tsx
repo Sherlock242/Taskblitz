@@ -116,32 +116,34 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         }
         return Object.values(groups);
     };
+    
+    // Admins see everything, but we need to split it into "My Tasks" and "Admin Overview"
+    if (userRole === 'Admin') {
+        const myWorkflowIds = new Set<string>();
+        tasks.forEach(task => {
+            if (!task.workflow_instance_id) return;
+            // A task is "mine" if I am the assignee OR if it's waiting for my review
+            if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
+                myWorkflowIds.add(task.workflow_instance_id);
+            }
+        });
 
-    if (userRole !== 'Admin') {
-        const myTasks = tasks.filter(task => task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review'));
-        return { myWorkflows: groupWorkflows(myTasks), otherWorkflows: [] };
+        const myTasks: TaskWithRelations[] = [];
+        const otherTasks: TaskWithRelations[] = [];
+
+        tasks.forEach(task => {
+            if (task.workflow_instance_id && myWorkflowIds.has(task.workflow_instance_id)) {
+                myTasks.push(task);
+            } else {
+                otherTasks.push(task);
+            }
+        });
+        return { myWorkflows: groupWorkflows(myTasks), otherWorkflows: groupWorkflows(otherTasks) };
+
+    } else {
+        // Non-admins only see their own tasks, so everything goes into "My Tasks"
+        return { myWorkflows: groupWorkflows(tasks), otherWorkflows: [] };
     }
-
-    const myWorkflowIds = new Set<string>();
-    tasks.forEach(task => {
-        if (!task.workflow_instance_id) return;
-        if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
-            myWorkflowIds.add(task.workflow_instance_id);
-        }
-    });
-
-    const myTasks: TaskWithRelations[] = [];
-    const otherTasks: TaskWithRelations[] = [];
-
-    tasks.forEach(task => {
-        if (task.workflow_instance_id && myWorkflowIds.has(task.workflow_instance_id)) {
-            myTasks.push(task);
-        } else {
-            otherTasks.push(task);
-        }
-    });
-
-    return { myWorkflows: groupWorkflows(myTasks), otherWorkflows: groupWorkflows(otherTasks) };
   }, [tasks, userRole, currentUserId]);
   
   const PageHeader = ({ title, description }: { title: string, description: string }) => (
@@ -177,15 +179,15 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               {group.description && <CardDescription>{group.description}</CardDescription>}
                           </div>
                           <div className="flex flex-col gap-4 items-end flex-shrink-0">
-                            {group.tasks[0]?.primary_assignee && (
+                            {group.assignee && (
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                       <div className="flex flex-col text-xs text-right">
                                           <span>Assigned to</span>
-                                          <span className="font-medium text-foreground">{group.tasks[0].primary_assignee.name}</span>
+                                          <span className="font-medium text-foreground">{group.assignee.name}</span>
                                       </div>
                                       <Avatar className="h-8 w-8">
-                                          <AvatarImage src={group.tasks[0].primary_assignee.avatar_url || undefined} alt={group.tasks[0].primary_assignee.name ?? ''}/>
-                                          <AvatarFallback>{group.tasks[0].primary_assignee.name?.charAt(0)}</AvatarFallback>
+                                          <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
+                                          <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
                                       </Avatar>
                                   </div>
                               )}
@@ -239,7 +241,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                               disabled={isPending}
                                           >
                                               <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : displayStatus} />
+                                                <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
                                               </SelectTrigger>
                                               <SelectContent>
                                                 {nextStatuses.map(status => (
@@ -277,15 +279,15 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               {group.description && <CardDescription>{group.description}</CardDescription>}
                           </div>
                           <div className="flex items-center gap-6">
-                              {group.tasks[0]?.primary_assignee && (
+                              {group.assignee && (
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                       <div className="flex flex-col text-xs text-right">
                                           <span>Assigned to</span>
-                                          <span className="font-medium text-foreground">{group.tasks[0].primary_assignee.name}</span>
+                                          <span className="font-medium text-foreground">{group.assignee.name}</span>
                                       </div>
                                       <Avatar className="h-8 w-8">
-                                          <AvatarImage src={group.tasks[0].primary_assignee.avatar_url || undefined} alt={group.tasks[0].primary_assignee.name ?? ''}/>
-                                          <AvatarFallback>{group.tasks[0].primary_assignee.name?.charAt(0)}</AvatarFallback>
+                                          <AvatarImage src={group.assignee.avatar_url || undefined} alt={group.assignee.name ?? ''}/>
+                                          <AvatarFallback>{group.assignee.name?.charAt(0)}</AvatarFallback>
                                       </Avatar>
                                   </div>
                               )}
@@ -329,7 +331,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
                                           </TableCell>
                                           <TableCell className="text-center text-xs">
-                                              {task.profiles?.name || 'N/A'}
+                                              {task.primary_assignee?.name || 'N/A'}
                                           </TableCell>
                                           <TableCell>
                                               <div className="flex items-center justify-center">
@@ -346,7 +348,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                       disabled={isPending}
                                                   >
                                                       <SelectTrigger className="w-[180px]">
-                                                        <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : displayStatus} />
+                                                        <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
                                                       </SelectTrigger>
                                                       <SelectContent>
                                                         {nextStatuses.map(status => (

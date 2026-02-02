@@ -32,8 +32,10 @@ async function DashboardData() {
     .from('tasks')
     .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
 
+  // This is the key change: Admins fetch all tasks.
+  // Members only fetch tasks where they are the assignee OR the reviewer for a submitted task.
   if (profile.role !== 'Admin') {
-    query = query.or(`primary_assignee_id.eq.${user.id},reviewer_id.eq.${user.id}`);
+    query = query.or(`primary_assignee_id.eq.${user.id},status.eq.Submitted for Review,reviewer_id.eq.${user.id}`);
   }
 
   const { data: allTasks, error: tasksError } = await query;
@@ -43,7 +45,7 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
   
-  // Merge and de-duplicate tasks
+  // Merge and de-duplicate tasks that might be fetched twice (e.g., if user is both assignee and reviewer)
   const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
 
   // Sort tasks
