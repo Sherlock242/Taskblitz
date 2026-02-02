@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useTransition, useEffect, useRef } from "react"
@@ -22,6 +23,7 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [isPosting, startPostingTransition] = useTransition();
     const { toast } = useToast();
     const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -29,17 +31,18 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
     useEffect(() => {
         if (open) {
             setIsLoading(true);
+            setError(null);
             getComments(task.id)
                 .then(result => {
                     if (result.data) {
                         setComments(result.data);
                     } else if (result.error) {
-                        toast({ title: "Error", description: "Could not load comments.", variant: "destructive" });
+                        setError("Could not load comments.");
                     }
                 })
                 .finally(() => setIsLoading(false));
         }
-    }, [open, task.id, toast]);
+    }, [open, task.id]);
 
     useEffect(() => {
         // Auto-scroll to bottom when new comments are added
@@ -59,9 +62,12 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
             } else {
                 setNewComment("");
                 // Re-fetch comments to show the new one
+                setError(null);
                 const updatedComments = await getComments(task.id);
                 if (updatedComments.data) {
                     setComments(updatedComments.data);
+                } else if (updatedComments.error) {
+                    setError("Could not refresh comments.");
                 }
             }
         });
@@ -85,7 +91,9 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
                 <ScrollArea className="flex-1 pr-4 -mr-6" ref={scrollAreaRef}>
                      <div className="space-y-4 py-4">
                         {isLoading ? (
-                            <p>Loading comments...</p>
+                            <p className="text-sm text-center text-muted-foreground py-8">Loading comments...</p>
+                        ) : error ? (
+                            <p className="text-sm text-center text-destructive py-8">{error}</p>
                         ) : comments.length > 0 ? (
                             comments.map(comment => (
                                 <div key={comment.id} className="flex items-start gap-3">
