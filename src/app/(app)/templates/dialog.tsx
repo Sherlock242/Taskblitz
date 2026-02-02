@@ -136,18 +136,25 @@ export function AddTemplateDialog({ template, children, users }: { template?: Te
                                     <div key={index} className="flex items-center gap-2">
                                         <span className="w-10 text-center text-sm font-medium text-muted-foreground">{index + 1}</span>
                                         <Input value={task.name} onChange={e => handleTaskChange(index, 'name', e.target.value)} placeholder={`Task Name`} className="flex-1" />
-                                        <div className="flex w-[320px] shrink-0 items-center gap-2">
-                                            <Input value={task.role} onChange={e => handleTaskChange(index, 'role', e.target.value)} placeholder={`Job Title`} className="flex-1" />
-                                            <Select value={task.user_id} onValueChange={value => handleTaskChange(index, 'user_id', value)}>
-                                                <SelectTrigger className="w-[140px]">
-                                                    <SelectValue placeholder="User" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {users.map(user => (
-                                                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                        <div className="relative w-[320px] shrink-0">
+                                            <Input
+                                                value={task.role}
+                                                onChange={(e) => handleTaskChange(index, 'role', e.target.value)}
+                                                placeholder="Job Title"
+                                                className="pr-36"
+                                            />
+                                            <div className="absolute right-0 top-0 h-full">
+                                                <Select value={task.user_id} onValueChange={value => handleTaskChange(index, 'user_id', value)}>
+                                                    <SelectTrigger className="w-36 h-full rounded-l-none border-l-0 focus:ring-0 focus:ring-offset-0">
+                                                        <SelectValue placeholder="User" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {users.map(user => (
+                                                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                                         </div>
                                         <Button type="button" variant="ghost" size="icon" onClick={() => removeTask(index)} disabled={tasks.length <= 1}>
                                             <Trash2 className="h-4 w-4 text-muted-foreground" />
