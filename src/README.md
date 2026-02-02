@@ -194,14 +194,12 @@ CREATE POLICY "Templates are viewable by authenticated users." ON public.templat
 CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING ( (select role from profiles where id = auth.uid()) = 'Admin' );
 
 -- Create policies for 'tasks'
--- THIS IS THE ONLY SELECT POLICY FOR TASKS. It ensures users (including Admins) can only see tasks assigned to them or tasks they need to review.
+CREATE POLICY "Admins can view all tasks." ON public.tasks
+FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin');
+
 CREATE POLICY "Users can view their own assigned or reviewable tasks." ON public.tasks
-FOR SELECT
-TO authenticated
-USING (
-    auth.uid() = user_id OR
-    (auth.uid() = reviewer_id AND status = 'Submitted for Review')
-);
+FOR SELECT USING (auth.uid() = user_id OR (auth.uid() = reviewer_id AND status = 'Submitted for Review'));
+
 CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Users involved in a task can update it." ON public.tasks
 FOR UPDATE
