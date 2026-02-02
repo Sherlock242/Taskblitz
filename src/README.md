@@ -203,7 +203,8 @@ FOR UPDATE
 USING (
     (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' OR
     auth.uid() = user_id OR
-    auth.uid() = primary_assignee_id
+    auth.uid() = primary_assignee_id OR
+    (auth.uid() = reviewer_id AND status = 'Submitted for Review')
 )
 WITH CHECK (
     true
