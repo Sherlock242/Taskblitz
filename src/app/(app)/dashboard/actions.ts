@@ -32,6 +32,25 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: `Task not found: ${taskError?.message}` } };
   }
 
+  // Check if this is the last task in the workflow
+  const supabaseAdminForCheck = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+  const { data: workflowTasks, error: workflowError } = await supabaseAdminForCheck
+    .from('tasks')
+    .select('position')
+    .eq('workflow_instance_id', task.workflow_instance_id);
+    
+  if (workflowError) {
+      return { error: { message: `Could not verify workflow: ${workflowError.message}` } };
+  }
+  
+  const maxPosition = Math.max(...(workflowTasks?.map(t => t.position ?? -1) || [-1]));
+  const isLastTask = task.position === maxPosition;
+
+
   let updatePayload: Partial<Task> = {
     updated_at: new Date().toISOString(),
   };
@@ -49,12 +68,16 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     isValidTransition = true;
     updatePayload.status = 'In Progress';
   }
-  else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee) {
+  else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee && !isLastTask) {
     if (!task.reviewer_id) {
       return { error: { message: 'No reviewer has been designated for this workflow.' } };
     }
     isValidTransition = true;
     updatePayload.status = 'Submitted for Review';
+  }
+  else if (newStatus === 'Completed' && task.status === 'In Progress' && isPrimaryAssignee && isLastTask) {
+    isValidTransition = true;
+    updatePayload.status = 'Completed';
   }
   else if (newStatus === 'Changes Requested' && task.status === 'Submitted for Review' && isReviewer) {
     isValidTransition = true;

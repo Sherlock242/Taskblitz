@@ -60,7 +60,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     });
   };
 
-  const getNextStatuses = (task: TaskWithRelations): Array<Task['status']> => {
+  const getNextStatuses = (task: TaskWithRelations, isLastTask: boolean): Array<Task['status']> => {
     if (userRole === 'Admin') {
         const allStatuses: Array<Task['status']> = ['Assigned', 'In Progress', 'Submitted for Review', 'Changes Requested', 'Approved', 'Completed'];
         return allStatuses.filter(s => s !== task.status);
@@ -73,7 +73,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         case 'Changes Requested':
             return isPrimaryAssignee ? ['In Progress'] : [];
         case 'In Progress':
-            return isPrimaryAssignee ? ['Submitted for Review'] : [];
+            if (isPrimaryAssignee) {
+                return isLastTask ? ['Completed'] : ['Submitted for Review'];
+            }
+            return [];
         case 'Submitted for Review':
             return isReviewer ? ['Approved', 'Changes Requested'] : [];
         default:
@@ -213,7 +216,8 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
                       {group.tasks.map((task: TaskWithRelations) => {
-                          const nextStatuses = getNextStatuses(task);
+                          const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
+                          const nextStatuses = getNextStatuses(task, isLastTask);
                           const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
@@ -329,7 +333,8 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                           </TableHeader>
                           <TableBody>
                               {group.tasks.map((task: TaskWithRelations) => {
-                                  const nextStatuses = getNextStatuses(task);
+                                  const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
+                                  const nextStatuses = getNextStatuses(task, isLastTask);
                                   const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
