@@ -63,7 +63,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
 
   const getNextStatuses = (task: TaskWithRelations, isLastTask: boolean): Array<Task['status']> => {
     if (userRole === 'Admin') {
-        const allStatuses: Array<Task['status']> = ['Assigned', 'In Progress', 'Submitted for Review', 'Changes Requested', 'Approved', 'Completed'];
+        const allStatuses: Array<Task['status']> = ['Pending', 'Assigned', 'In Progress', 'Submitted for Review', 'Changes Requested', 'Approved', 'Completed'];
         return allStatuses.filter(s => s !== task.status);
     }
     const isPrimaryAssignee = currentUserId === task.primary_assignee_id;
@@ -466,5 +466,3 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
-
-    
