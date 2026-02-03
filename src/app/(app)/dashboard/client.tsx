@@ -150,19 +150,18 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     } else {
         const allWorkflowGroups = groupWorkflows(tasks);
         
-        // Create a new set of workflows where the tasks array is filtered to only include the current user's tasks.
-        const myWorkflowsFiltered = allWorkflowGroups.map(workflow => {
-            const myTasksInWorkflow = workflow.tasks.filter(task => 
+        const myWorkflows = allWorkflowGroups.map(workflow => {
+            const displayTasks = workflow.tasks.filter(task => 
                 task.primary_assignee_id === currentUserId || task.reviewer_id === currentUserId
             );
             
             return {
                 ...workflow,
-                tasks: myTasksInWorkflow,
+                displayTasks,
             };
-        }).filter(workflow => workflow.tasks.length > 0); // Only keep workflows where the user has at least one task.
+        }).filter(workflow => workflow.displayTasks.length > 0);
 
-        return { myWorkflows: myWorkflowsFiltered, otherWorkflows: [] };
+        return { myWorkflows, otherWorkflows: [] };
     }
   }, [tasks, userRole, currentUserId]);
   
@@ -227,7 +226,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       </div>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
-                      {group.tasks.map((task: TaskWithRelations) => {
+                      {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                           const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                           const nextStatuses = getNextStatuses(task, isLastTask);
                           const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -344,7 +343,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {group.tasks.map((task: TaskWithRelations) => {
+                              {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                                   const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
                                   const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
