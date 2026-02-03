@@ -151,15 +151,27 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         const allWorkflowGroups = groupWorkflows(tasks);
         
         const myWorkflows = allWorkflowGroups.map(workflow => {
-            const displayTasks = workflow.tasks.filter(task => 
-                task.primary_assignee_id === currentUserId || task.reviewer_id === currentUserId
-            );
             
+            const tasksForDisplay = workflow.tasks.filter(task => {
+                // Show if I'm the assignee
+                if (task.primary_assignee_id === currentUserId) return true;
+                
+                // Show if I'm the reviewer and the task is in a state relevant to me (i.e. not pending or assigned to someone else)
+                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved', 'Completed'].includes(task.status)) return true;
+                
+                return false;
+            });
+
+            // If after filtering, there are no tasks for this user to see, skip the workflow
+            if (tasksForDisplay.length === 0) {
+                return null;
+            }
+
             return {
                 ...workflow,
-                displayTasks,
+                displayTasks: tasksForDisplay,
             };
-        }).filter(workflow => workflow.displayTasks.length > 0);
+        }).filter((w): w is NonNullable<typeof w> => w !== null);
 
         return { myWorkflows, otherWorkflows: [] };
     }
