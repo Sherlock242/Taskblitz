@@ -180,16 +180,45 @@ export async function getComments(taskId: string) {
       { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  const { data, error } = await supabaseAdmin
+  // 1. Fetch comments without the join
+  const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
-    .select('*, profiles(name, avatar_url)')
+    .select('*')
     .eq('task_id', taskId)
     .order('created_at', { ascending: true });
     
-  if (error) {
-    console.error("Error fetching comments with admin client:", error);
-    return { error: { message: `Failed to fetch comments: ${error.message}` } };
+  if (commentsError) {
+    console.error("Error fetching comments with admin client:", commentsError);
+    return { error: { message: `Failed to fetch comments: ${commentsError.message}` } };
   }
+  
+  if (!comments || comments.length === 0) {
+    return { data: [] };
+  }
+
+  // 2. Get unique user IDs from comments
+  const userIds = [...new Set(comments.map(c => c.user_id))];
+
+  // 3. Fetch profiles for those user IDs
+  const { data: profiles, error: profilesError } = await supabaseAdmin
+    .from('profiles')
+    .select('id, name, avatar_url')
+    .in('id', userIds);
+
+  if (profilesError) {
+    console.error("Error fetching profiles with admin client:", profilesError);
+    // We can still return comments, just without profile info
+    return { data: comments.map(c => ({...c, profiles: null})) as Comment[] };
+  }
+  
+  const profileMap = new Map(profiles.map(p => [p.id, {name: p.name, avatar_url: p.avatar_url}]));
+
+  // 4. Manually join the data
+  const data = comments.map(comment => ({
+    ...comment,
+    profiles: profileMap.get(comment.user_id) || null
+  }));
+
   return { data: data as Comment[] };
 }
 
