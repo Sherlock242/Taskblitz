@@ -168,15 +168,27 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
 
 export async function getComments(taskId: string) {
   const supabase = createClient();
-  const { data, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+      return { error: { message: 'You must be logged in to view comments.' } };
+  }
+  
+  const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { data, error } = await supabaseAdmin
     .from('comments')
     .select('*, profiles(name, avatar_url)')
     .eq('task_id', taskId)
     .order('created_at', { ascending: true });
     
   if (error) {
-    console.error("Error fetching comments", error);
-    return { error };
+    console.error("Error fetching comments with admin client:", error);
+    return { error: { message: `Failed to fetch comments: ${error.message}` } };
   }
   return { data: data as Comment[] };
 }
@@ -192,8 +204,14 @@ export async function addComment(taskId: string, content: string) {
   if (!content.trim()) {
     return { error: { message: 'Comment cannot be empty.' } };
   }
+  
+  const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+  );
 
-  const { error } = await supabase.from('comments').insert({
+  const { error } = await supabaseAdmin.from('comments').insert({
     task_id: taskId,
     user_id: user.id,
     content,
