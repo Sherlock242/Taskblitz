@@ -118,19 +118,17 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                 description: templateDescription,
                 tasks: workflowTasks,
                 assigner: firstTask.assigner,
-                assignee: firstTask.primary_assignee,
+                assignee: firstTask.primary_assignee, // Note: this is the assignee of the first task
                 reviewer: firstTask.reviewer,
             };
         }
         return Object.values(groups);
     };
     
-    // Admins see everything, but we need to split it into "My Tasks" and "Admin Overview"
     if (userRole === 'Admin') {
         const myWorkflowIds = new Set<string>();
         tasks.forEach(task => {
             if (!task.workflow_instance_id) return;
-            // A task is "mine" if I am the assignee OR if it's waiting for my review
             if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
                 myWorkflowIds.add(task.workflow_instance_id);
             }
@@ -149,8 +147,17 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         return { myWorkflows: groupWorkflows(myTasks), otherWorkflows: groupWorkflows(otherTasks) };
 
     } else {
-        // Non-admins only see their own tasks, so everything goes into "My Tasks"
-        return { myWorkflows: groupWorkflows(tasks), otherWorkflows: [] };
+        const allWorkflowGroups = groupWorkflows(tasks);
+        
+        const myActionableWorkflows = allWorkflowGroups.filter(workflow => 
+            workflow.tasks.some(task => {
+                const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
+                const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
+                return isMyAssignment || isMyReview;
+            })
+        );
+        
+        return { myWorkflows: myActionableWorkflows, otherWorkflows: [] };
     }
   }, [tasks, userRole, currentUserId]);
   
@@ -215,7 +222,14 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       </div>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
-                      {group.tasks.map((task: TaskWithRelations) => {
+                      {group.tasks
+                        .filter((task: TaskWithRelations) => {
+                            if (isReadOnly) return true;
+                            const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
+                            const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
+                            return isMyAssignment || isMyReview;
+                        })
+                        .map((task: TaskWithRelations) => {
                           const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                           const nextStatuses = getNextStatuses(task, isLastTask);
                           const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -332,7 +346,14 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {group.tasks.map((task: TaskWithRelations) => {
+                              {group.tasks
+                                .filter((task: TaskWithRelations) => {
+                                    if (isReadOnly) return true;
+                                    const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
+                                    const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
+                                    return isMyAssignment || isMyReview;
+                                })
+                                .map((task: TaskWithRelations) => {
                                   const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
                                   const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
