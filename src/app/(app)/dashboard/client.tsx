@@ -62,8 +62,8 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   };
 
   const getNextStatuses = (task: TaskWithRelations, isLastTask: boolean): Array<Task['status']> => {
+    const allStatuses: Array<Task['status']> = ['Pending', 'Assigned', 'In Progress', 'Submitted for Review', 'Changes Requested', 'Approved', 'Completed'];
     if (userRole === 'Admin') {
-        const allStatuses: Array<Task['status']> = ['Pending', 'Assigned', 'In Progress', 'Submitted for Review', 'Changes Requested', 'Approved', 'Completed'];
         return allStatuses.filter(s => s !== task.status);
     }
     const isPrimaryAssignee = currentUserId === task.primary_assignee_id;
@@ -150,15 +150,19 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     } else {
         const allWorkflowGroups = groupWorkflows(tasks);
         
-        const myActionableWorkflows = allWorkflowGroups.filter(workflow => 
-            workflow.tasks.some(task => {
-                const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
-                const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
-                return isMyAssignment || isMyReview;
-            })
-        );
-        
-        return { myWorkflows: myActionableWorkflows, otherWorkflows: [] };
+        // Create a new set of workflows where the tasks array is filtered to only include the current user's tasks.
+        const myWorkflowsFiltered = allWorkflowGroups.map(workflow => {
+            const myTasksInWorkflow = workflow.tasks.filter(task => 
+                task.primary_assignee_id === currentUserId || task.reviewer_id === currentUserId
+            );
+            
+            return {
+                ...workflow,
+                tasks: myTasksInWorkflow,
+            };
+        }).filter(workflow => workflow.tasks.length > 0); // Only keep workflows where the user has at least one task.
+
+        return { myWorkflows: myWorkflowsFiltered, otherWorkflows: [] };
     }
   }, [tasks, userRole, currentUserId]);
   
@@ -224,11 +228,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
                       {group.tasks.map((task: TaskWithRelations) => {
-                          const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
-                          const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
-                          const isActionable = isMyAssignment || isMyReview;
-                          const isDimmed = (isReadOnly || !isActionable) && userRole !== 'Admin';
-
                           const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                           const nextStatuses = getNextStatuses(task, isLastTask);
                           const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -236,7 +235,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                           const isReviewStep = task.status === 'Submitted for Review';
 
                           return (
-                              <Card key={task.id} className={isDimmed ? 'opacity-60' : ''}>
+                              <Card key={task.id}>
                                   <CardHeader className="pb-4 flex-row items-start justify-between">
                                       <div>
                                           <CardTitle className="text-lg">{task.name}</CardTitle>
@@ -346,11 +345,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                           </TableHeader>
                           <TableBody>
                               {group.tasks.map((task: TaskWithRelations) => {
-                                  const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
-                                  const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
-                                  const isActionable = isMyAssignment || isMyReview;
-                                  const isDimmed = (isReadOnly || !isActionable) && userRole !== 'Admin';
-
                                   const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
                                   const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -358,7 +352,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                   const isReviewStep = task.status === 'Submitted for Review';
 
                                   return (
-                                      <TableRow key={task.id} className={isDimmed ? 'opacity-60' : ''}>
+                                      <TableRow key={task.id}>
                                           <TableCell className="font-medium max-w-xs">
                                               <p className="font-semibold truncate">{task.name}</p>
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
@@ -466,3 +460,5 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
+
+    
