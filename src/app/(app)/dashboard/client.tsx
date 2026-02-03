@@ -201,7 +201,9 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     if (isMobile) {
       return (
         <div className="flex flex-col gap-6">
-          {workflows.map(group => (
+          {workflows.map(group => {
+            const maxPositionInGroup = Math.max(...group.tasks.map((t: Task) => t.position ?? -1));
+            return (
               <Card key={group.id} className="w-full">
                   <CardHeader>
                       <div className="flex justify-between items-start gap-4">
@@ -239,7 +241,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
                       {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
-                          const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
+                          const isLastTask = task.position === maxPositionInGroup;
                           const nextStatuses = getNextStatuses(task, isLastTask);
                           const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
@@ -300,14 +302,16 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       })}
                   </CardContent>
               </Card>
-          ))}
+            )})}
         </div>
       );
     }
 
     return (
       <div className="flex flex-col gap-6">
-          {workflows.map(group => (
+          {workflows.map(group => {
+              const maxPositionInGroup = Math.max(...group.tasks.map((t: Task) => t.position ?? -1));
+              return (
               <Card key={group.id}>
                   <CardHeader>
                       <div className="flex justify-between items-start">
@@ -356,7 +360,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                           </TableHeader>
                           <TableBody>
                               {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
-                                  const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
+                                  const isLastTask = task.position === maxPositionInGroup;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
                                   const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
@@ -424,7 +428,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       </Table>
                   </CardContent>
               </Card>
-          ))}
+          )})}
       </div>
     );
   }
@@ -471,5 +475,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
+
+    
 
     
