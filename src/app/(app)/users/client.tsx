@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserRole } from './actions';
+import { DeleteUserDialog } from './delete-user-dialog';
 
 
 interface UsersClientProps {
@@ -70,23 +71,28 @@ export function UsersClient({ users, currentUserId, currentUserRole }: UsersClie
                                     <CardTitle className="text-lg">{user.name}</CardTitle>
                                     <p className="text-sm text-muted-foreground">{user.email}</p>
                                 </div>
-                                {currentUserRole === 'Admin' && user.id !== currentUserId ? (
-                                    <Select 
-                                        defaultValue={user.role} 
-                                        onValueChange={(newRole: User['role']) => handleRoleChange(user.id, newRole)}
-                                        disabled={isPending}
-                                    >
-                                        <SelectTrigger className="w-[110px]">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Admin">Admin</SelectItem>
-                                            <SelectItem value="Member">Member</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
-                                )}
+                                <div className="flex items-center gap-1">
+                                    {currentUserRole === 'Admin' && user.id !== currentUserId ? (
+                                        <>
+                                            <Select 
+                                                defaultValue={user.role} 
+                                                onValueChange={(newRole: User['role']) => handleRoleChange(user.id, newRole)}
+                                                disabled={isPending}
+                                            >
+                                                <SelectTrigger className="w-[110px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Admin">Admin</SelectItem>
+                                                    <SelectItem value="Member">Member</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <DeleteUserDialog userId={user.id} userName={user.name} />
+                                        </>
+                                    ) : (
+                                        <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
+                                    )}
+                                </div>
                             </div>
                         </CardHeader>
                     </Card>
@@ -124,25 +130,28 @@ export function UsersClient({ users, currentUserId, currentUserRole }: UsersClie
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                                 <TableCell className="text-right">
-                                    {currentUserRole === 'Admin' && user.id !== currentUserId ? (
-                                        <div className="flex justify-end">
-                                            <Select 
-                                                defaultValue={user.role} 
-                                                onValueChange={(newRole: User['role']) => handleRoleChange(user.id, newRole)}
-                                                disabled={isPending}
-                                            >
-                                                <SelectTrigger className="w-[120px]">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Admin">Admin</SelectItem>
-                                                    <SelectItem value="Member">Member</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    ) : (
-                                        <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
-                                    )}
+                                    <div className="flex items-center justify-end gap-2">
+                                        {currentUserRole === 'Admin' && user.id !== currentUserId ? (
+                                            <>
+                                                <Select 
+                                                    defaultValue={user.role} 
+                                                    onValueChange={(newRole: User['role']) => handleRoleChange(user.id, newRole)}
+                                                    disabled={isPending}
+                                                >
+                                                    <SelectTrigger className="w-[120px]">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Admin">Admin</SelectItem>
+                                                        <SelectItem value="Member">Member</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <DeleteUserDialog userId={user.id} userName={user.name} />
+                                            </>
+                                        ) : (
+                                            <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
+                                        )}
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}
