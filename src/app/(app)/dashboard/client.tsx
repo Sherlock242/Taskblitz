@@ -18,6 +18,7 @@ import { Edit, MessageSquare } from 'lucide-react';
 import { EditTaskDialog } from './edit-task-dialog';
 import { CommentsSheet } from './comments-sheet';
 import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -222,14 +223,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       </div>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
-                      {group.tasks
-                        .filter((task: TaskWithRelations) => {
-                            if (isReadOnly) return true;
-                            const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
-                            const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
-                            return isMyAssignment || isMyReview;
-                        })
-                        .map((task: TaskWithRelations) => {
+                      {group.tasks.map((task: TaskWithRelations) => {
+                          const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
+                          const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
+                          const isActionable = isMyAssignment || isMyReview;
+                          const isDimmed = (isReadOnly || !isActionable) && userRole !== 'Admin';
+
                           const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                           const nextStatuses = getNextStatuses(task, isLastTask);
                           const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -237,7 +236,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                           const isReviewStep = task.status === 'Submitted for Review';
 
                           return (
-                              <Card key={task.id} className={isReadOnly && userRole !== 'Admin' ? 'opacity-60' : ''}>
+                              <Card key={task.id} className={isDimmed ? 'opacity-60' : ''}>
                                   <CardHeader className="pb-4 flex-row items-start justify-between">
                                       <div>
                                           <CardTitle className="text-lg">{task.name}</CardTitle>
@@ -346,14 +345,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {group.tasks
-                                .filter((task: TaskWithRelations) => {
-                                    if (isReadOnly) return true;
-                                    const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
-                                    const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
-                                    return isMyAssignment || isMyReview;
-                                })
-                                .map((task: TaskWithRelations) => {
+                              {group.tasks.map((task: TaskWithRelations) => {
+                                  const isMyAssignment = task.primary_assignee_id === currentUserId && ['Assigned', 'In Progress', 'Changes Requested'].includes(task.status);
+                                  const isMyReview = task.reviewer_id === currentUserId && task.status === 'Submitted for Review';
+                                  const isActionable = isMyAssignment || isMyReview;
+                                  const isDimmed = (isReadOnly || !isActionable) && userRole !== 'Admin';
+
                                   const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
                                   const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -361,7 +358,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                   const isReviewStep = task.status === 'Submitted for Review';
 
                                   return (
-                                      <TableRow key={task.id} className={isReadOnly && userRole !== 'Admin' ? 'opacity-60' : ''}>
+                                      <TableRow key={task.id} className={isDimmed ? 'opacity-60' : ''}>
                                           <TableCell className="font-medium max-w-xs">
                                               <p className="font-semibold truncate">{task.name}</p>
                                               {task.description && <p className="text-xs text-muted-foreground truncate">{task.description}</p>}
@@ -469,3 +466,5 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
+
+    
