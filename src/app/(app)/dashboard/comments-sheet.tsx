@@ -7,23 +7,25 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
-import { getComments, addComment } from "./actions"
+import { getComments, addComment, deleteComment } from "./actions"
 import type { Task, Comment, User } from "@/lib/types"
-import { MessageSquare, Send } from "lucide-react"
+import { MessageSquare, Send, Trash2 } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
 
 interface CommentsSheetProps {
     task: Task;
     userRole: User['role'];
+    currentUserId: string;
 }
 
-export function CommentsSheet({ task }: CommentsSheetProps) {
+export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetProps) {
     const [open, setOpen] = useState(false);
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isPosting, startPostingTransition] = useTransition();
+    const [isDeleting, startDeletingTransition] = useTransition();
     const { toast } = useToast();
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -72,6 +74,22 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
         });
     };
 
+    const handleDeleteComment = async (commentId: string) => {
+        startDeletingTransition(async () => {
+            const result = await deleteComment(commentId);
+            if (result.error) {
+                toast({ title: "Error", description: result.error.message, variant: "destructive" });
+            } else {
+                toast({ title: "Comment Deleted", description: result.data?.message });
+                // Re-fetch comments after deletion
+                const updatedComments = await getComments(task.id);
+                if (updatedComments.data) {
+                    setComments(updatedComments.data);
+                }
+            }
+        });
+    };
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -95,7 +113,7 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
                             <p className="text-sm text-center text-destructive py-8">{error}</p>
                         ) : comments.length > 0 ? (
                             comments.map(comment => (
-                                <div key={comment.id} className="flex items-start gap-3">
+                                <div key={comment.id} className="flex items-start gap-3 group">
                                     <Avatar className="h-8 w-8">
                                         <AvatarImage src={comment.profiles?.avatar_url || undefined} alt={comment.profiles?.name || ''} />
                                         <AvatarFallback>{comment.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
@@ -107,8 +125,20 @@ export function CommentsSheet({ task }: CommentsSheetProps) {
                                                 {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                                             </p>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">{comment.content}</p>
+                                        <p className="text-sm text-muted-foreground break-words">{comment.content}</p>
                                     </div>
+                                    {(userRole === 'Admin' || comment.user_id === currentUserId) && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => handleDeleteComment(comment.id)}
+                                            disabled={isDeleting}
+                                            aria-label="Delete comment"
+                                        >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    )}
                                 </div>
                             ))
                         ) : (

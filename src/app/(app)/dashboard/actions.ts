@@ -253,3 +253,48 @@ export async function addComment(taskId: string, content: string) {
   revalidatePath('/dashboard');
   return { data: { message: 'Comment added.' } };
 }
+
+export async function deleteComment(commentId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: { message: 'You must be logged in to delete comments.' } };
+  }
+  
+  const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { data: comment, error: fetchError } = await supabaseAdmin
+    .from('comments')
+    .select('user_id')
+    .eq('id', commentId)
+    .single();
+
+  if (fetchError || !comment) {
+      return { error: { message: 'Comment not found.' } };
+  }
+
+  // Check if user is admin
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  
+  // Allow deletion if user is the comment owner or an admin
+  if (comment.user_id !== user.id && profile?.role !== 'Admin') {
+      return { error: { message: "You don't have permission to delete this comment." } };
+  }
+
+  const { error } = await supabaseAdmin
+    .from('comments')
+    .delete()
+    .eq('id', commentId);
+
+  if (error) {
+    return { error: { message: `Failed to delete comment: ${error.message}` } };
+  }
+
+  revalidatePath('/dashboard');
+  return { data: { message: 'Comment deleted.' } };
+}

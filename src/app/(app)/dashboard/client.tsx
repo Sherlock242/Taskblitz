@@ -158,7 +158,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
   
-  const WorkflowGroupList = ({ workflows, isReadOnly }: { workflows: any[], isReadOnly: boolean }) => {
+  const WorkflowGroupList = ({ workflows, isReadOnly, currentUserId }: { workflows: any[], isReadOnly: boolean, currentUserId: string }) => {
     
     if (workflows.length === 0) {
       return (
@@ -231,7 +231,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                             )}
                                       </div>
                                       <div className="flex items-center">
-                                          <CommentsSheet task={task} userRole={userRole} />
+                                          <CommentsSheet task={task} userRole={userRole} currentUserId={currentUserId} />
                                           {userRole === 'Admin' && (
                                               <>
                                                   <EditTaskDialog task={task} />
@@ -380,7 +380,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                           </TableCell>
                                           <TableCell className="text-right">
                                               <div className="flex items-center justify-end">
-                                                  <CommentsSheet task={task} userRole={userRole} />
+                                                  <CommentsSheet task={task} userRole={userRole} currentUserId={currentUserId} />
                                                   {userRole === 'Admin' && (
                                                       <>
                                                           <EditTaskDialog task={task} />
@@ -428,7 +428,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
       <div>
         <PageHeader title="My Tasks" description="An overview of tasks assigned to you or awaiting your review." />
         <div className="mt-4">
-          <WorkflowGroupList workflows={myWorkflows} isReadOnly={false} />
+          <WorkflowGroupList workflows={myWorkflows} isReadOnly={false} currentUserId={currentUserId} />
         </div>
       </div>
       
@@ -436,7 +436,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         <div>
           <PageHeader title="Admin Overview" description="A read-only overview of all other active workflows." />
           <div className="mt-4">
-            <WorkflowGroupList workflows={otherWorkflows} isReadOnly={true} />
+            <WorkflowGroupList workflows={otherWorkflows} isReadOnly={true} currentUserId={currentUserId} />
           </div>
         </div>
       )}
