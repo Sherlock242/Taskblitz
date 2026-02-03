@@ -153,12 +153,22 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         const myWorkflows = allWorkflowGroups.map(workflow => {
             
             const tasksForDisplay = workflow.tasks.filter(task => {
-                // Show if I'm the assignee
-                if (task.primary_assignee_id === currentUserId) return true;
+                // Always show a task if the current user is the primary assignee.
+                if (task.primary_assignee_id === currentUserId) {
+                    return true;
+                }
+
+                // If the user is the reviewer, only show the task if it's at or past the review stage.
+                if (task.reviewer_id === currentUserId) {
+                    if (task.status === 'Submitted for Review' || 
+                        task.status === 'Changes Requested' || 
+                        task.status === 'Approved' || 
+                        task.status === 'Completed') {
+                        return true;
+                    }
+                }
                 
-                // Show if I'm the reviewer and the task is in a state relevant to me (i.e. not pending or assigned to someone else)
-                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved', 'Completed'].includes(task.status)) return true;
-                
+                // Otherwise, hide the task.
                 return false;
             });
 
@@ -169,7 +179,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
 
             return {
                 ...workflow,
-                displayTasks: tasksForDisplay,
+                tasks: tasksForDisplay,
             };
         }).filter((w): w is NonNullable<typeof w> => w !== null);
 
@@ -240,7 +250,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       </div>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
-                      {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
+                      {group.tasks.map((task: TaskWithRelations) => {
                           const isLastTask = task.position === maxPositionInGroup;
                           const nextStatuses = getNextStatuses(task, isLastTask);
                           const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -359,7 +369,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
+                              {group.tasks.map((task: TaskWithRelations) => {
                                   const isLastTask = task.position === maxPositionInGroup;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
                                   const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
@@ -475,6 +485,8 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
+
+    
 
     
 
