@@ -181,6 +181,8 @@ DROP POLICY IF EXISTS "Members can view comments on their assigned or submitted 
 DROP POLICY IF EXISTS "Members can create comments on their assigned or submitted tasks." ON public.comments;
 DROP POLICY IF EXISTS "Members can update their own comments." ON public.comments;
 DROP POLICY IF EXISTS "Members can delete their own comments." ON public.comments;
+DROP POLICY IF EXISTS "Members can view comments on tasks they can see." ON public.comments;
+DROP POLICY IF EXISTS "Members can create comments on tasks they can see." ON public.comments;
 
 
 -- Create policies for 'profiles'
@@ -196,7 +198,7 @@ CREATE POLICY "Admins can manage templates." ON public.templates FOR ALL USING (
 
 -- Create policies for 'tasks'
 CREATE POLICY "Admins can view all tasks." ON public.tasks FOR SELECT USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin');
-CREATE POLICY "Users can view their own assigned or reviewable tasks." ON public.tasks FOR SELECT USING (primary_assignee_id = auth.uid() OR (reviewer_id = auth.uid() AND status = 'Submitted for Review'));
+CREATE POLICY "Users can view tasks where they are involved." ON public.tasks FOR SELECT USING (primary_assignee_id = auth.uid() OR reviewer_id = auth.uid());
 
 CREATE POLICY "Users can insert tasks." ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Users involved in a task can update it." ON public.tasks
@@ -216,19 +218,19 @@ CREATE POLICY "Admins can delete tasks." ON public.tasks FOR DELETE USING ((sele
 CREATE POLICY "Admins can manage all comments." ON public.comments FOR ALL
     USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' );
 
-CREATE POLICY "Members can view comments on their assigned or submitted tasks." ON public.comments
+CREATE POLICY "Members can view comments on tasks they can see." ON public.comments
 FOR SELECT
 TO authenticated
 USING (
-    task_id IN (SELECT id FROM public.tasks WHERE primary_assignee_id = auth.uid() OR (reviewer_id = auth.uid() AND status IN ('Submitted for Review', 'Changes Requested', 'Approved', 'Completed')))
+    EXISTS (SELECT 1 FROM public.tasks WHERE id = task_id)
 );
 
-CREATE POLICY "Members can create comments on their assigned or submitted tasks." ON public.comments
+CREATE POLICY "Members can create comments on tasks they can see." ON public.comments
 FOR INSERT
 TO authenticated
 WITH CHECK (
     user_id = auth.uid() AND
-    task_id IN (SELECT id FROM public.tasks WHERE primary_assignee_id = auth.uid() OR (reviewer_id = auth.uid() AND status IN ('Submitted for Review', 'Changes Requested', 'Approved', 'Completed')))
+    EXISTS (SELECT 1 FROM public.tasks WHERE id = task_id)
 );
 
 CREATE POLICY "Members can update their own comments." ON public.comments FOR UPDATE
