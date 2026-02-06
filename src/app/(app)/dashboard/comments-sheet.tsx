@@ -7,10 +7,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
-import { getComments, addComment, deleteComment } from "./actions"
-import type { Task, Comment, User } from "@/lib/types"
-import { MessageSquare, Send, Trash2 } from "lucide-react"
+import { getAuditTrail, addComment, deleteComment } from "./actions"
+import type { Task, AuditTrailItem, User } from "@/lib/types"
+import { MessageSquare, Send, Trash2, ArrowRight } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
+import { Badge } from "@/components/ui/badge"
 
 interface CommentsSheetProps {
     task: Task;
@@ -20,7 +21,7 @@ interface CommentsSheetProps {
 
 export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetProps) {
     const [open, setOpen] = useState(false);
-    const [comments, setComments] = useState<Comment[]>([]);
+    const [activity, setActivity] = useState<AuditTrailItem[]>([]);
     const [newComment, setNewComment] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -33,12 +34,12 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
         if (open) {
             setIsLoading(true);
             setError(null);
-            getComments(task.id)
+            getAuditTrail(task.id)
                 .then(result => {
                     if (result.data) {
-                        setComments(result.data);
+                        setActivity(result.data);
                     } else if (result.error) {
-                        setError("Could not load comments.");
+                        setError("Could not load activity.");
                     }
                 })
                 .finally(() => setIsLoading(false));
@@ -50,7 +51,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
         if (scrollAreaRef.current) {
             scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight });
         }
-    }, [comments]);
+    }, [activity]);
 
 
     const handleAddComment = async () => {
@@ -62,13 +63,13 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 setNewComment("");
-                // Re-fetch comments to show the new one
+                // Re-fetch activity to show the new one
                 setError(null);
-                const updatedComments = await getComments(task.id);
-                if (updatedComments.data) {
-                    setComments(updatedComments.data);
-                } else if (updatedComments.error) {
-                    setError("Could not refresh comments.");
+                const updatedActivity = await getAuditTrail(task.id);
+                if (updatedActivity.data) {
+                    setActivity(updatedActivity.data);
+                } else if (updatedActivity.error) {
+                    setError("Could not refresh activity.");
                 }
             }
         });
@@ -81,10 +82,10 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted", description: result.data?.message });
-                // Re-fetch comments after deletion
-                const updatedComments = await getComments(task.id);
-                if (updatedComments.data) {
-                    setComments(updatedComments.data);
+                // Re-fetch activity after deletion
+                const updatedActivity = await getAuditTrail(task.id);
+                if (updatedActivity.data) {
+                    setActivity(updatedActivity.data);
                 }
             }
         });
@@ -95,54 +96,77 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
             <DialogTrigger asChild>
                 <Button variant="ghost" size="icon">
                     <MessageSquare className="h-4 w-4" />
-                    <span className="sr-only">Comments</span>
+                    <span className="sr-only">Activity</span>
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Comments for "{task.name}"</DialogTitle>
+                    <DialogTitle>Activity for "{task.name}"</DialogTitle>
                     <DialogDescription>
-                        Discuss the task with your team members.
+                        Comments and status changes for this task.
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="flex-1 pr-4 -mr-6" ref={scrollAreaRef}>
                      <div className="space-y-4 py-4">
                         {isLoading ? (
-                            <p className="text-sm text-center text-muted-foreground py-8">Loading comments...</p>
+                            <p className="text-sm text-center text-muted-foreground py-8">Loading activity...</p>
                         ) : error ? (
                             <p className="text-sm text-center text-destructive py-8">{error}</p>
-                        ) : comments.length > 0 ? (
-                            comments.map(comment => (
-                                <div key={comment.id} className="flex items-start gap-3 group">
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={comment.profiles?.avatar_url || undefined} alt={comment.profiles?.name || ''} />
-                                        <AvatarFallback>{comment.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-semibold text-sm">{comment.profiles?.name}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                                            </p>
+                        ) : activity.length > 0 ? (
+                            activity.map(item => {
+                                if (item.type === 'comment') {
+                                    return (
+                                        <div key={item.id} className="flex items-start gap-3 group">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src={item.profiles?.avatar_url || undefined} alt={item.profiles?.name || ''} />
+                                                <AvatarFallback>{item.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-semibold text-sm">{item.profiles?.name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {formatDistanceToNow(new Date(item.date), { addSuffix: true })}
+                                                    </p>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground break-words">{item.content}</p>
+                                            </div>
+                                            {(userRole === 'Admin' || item.user_id === currentUserId) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onClick={() => handleDeleteComment(item.id)}
+                                                    disabled={isDeleting}
+                                                    aria-label="Delete comment"
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            )}
                                         </div>
-                                        <p className="text-sm text-muted-foreground break-words">{comment.content}</p>
-                                    </div>
-                                    {(userRole === 'Admin' || comment.user_id === currentUserId) && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => handleDeleteComment(comment.id)}
-                                            disabled={isDeleting}
-                                            aria-label="Delete comment"
-                                        >
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    )}
-                                </div>
-                            ))
+                                    )
+                                } else { // 'status_change'
+                                    return (
+                                        <div key={item.id} className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8">
+                                                 <AvatarImage src={item.profiles?.avatar_url || undefined} alt={item.profiles?.name || ''} />
+                                                <AvatarFallback>{item.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 text-sm text-muted-foreground">
+                                                <span className="font-semibold text-foreground">{item.profiles?.name || 'System'}</span>
+                                                {' changed status from '}
+                                                <Badge variant="outline" className="font-medium">{item.previous_status || 'None'}</Badge>
+                                                <ArrowRight className="inline-block h-3 w-3 mx-1" />
+                                                <Badge variant="outline" className="font-medium">{item.new_status}</Badge>
+                                                <span className="text-xs text-muted-foreground ml-2">
+                                                    {formatDistanceToNow(new Date(item.date), { addSuffix: true })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )
+                                }
+                            })
                         ) : (
-                            <p className="text-sm text-center text-muted-foreground py-8">No comments yet.</p>
+                            <p className="text-sm text-center text-muted-foreground py-8">No activity yet.</p>
                         )}
                     </div>
                 </ScrollArea>

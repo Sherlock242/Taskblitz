@@ -66,10 +66,11 @@ You need to run a SQL script in your Supabase project to create the necessary ta
 
 ```sql
 -- DANGER: This script deletes existing tables before recreating them.
--- You will lose all data in the 'comments', 'tasks', 'templates', and 'profiles' tables.
+-- You will lose all data in the tables.
 -- Back up any important data before running this script.
 
 -- Drop existing tables in reverse order of creation to handle dependencies
+DROP TABLE IF EXISTS public.task_history CASCADE;
 DROP TABLE IF EXISTS public.comments CASCADE;
 DROP TABLE IF EXISTS public.tasks CASCADE;
 DROP TABLE IF EXISTS public.templates CASCADE;
@@ -126,6 +127,16 @@ CREATE TABLE public.comments (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Create a table for task history (audit trail)
+CREATE TABLE public.task_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    previous_status TEXT,
+    new_status TEXT NOT NULL,
+    changed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 -- 2. SET UP AUTH TRIGGERS
 
@@ -155,6 +166,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_history ENABLE ROW LEVEL SECURITY;
 
 -- Drop old policies before creating new ones
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
@@ -183,6 +195,10 @@ DROP POLICY IF EXISTS "Members can update their own comments." ON public.comment
 DROP POLICY IF EXISTS "Members can delete their own comments." ON public.comments;
 DROP POLICY IF EXISTS "Members can view comments on tasks they can see." ON public.comments;
 DROP POLICY IF EXISTS "Members can create comments on tasks they can see." ON public.comments;
+
+-- Drop all old policies for task history
+DROP POLICY IF EXISTS "Users can view history for tasks they can see." ON public.task_history;
+DROP POLICY IF EXISTS "Admins can manage all history." ON public.task_history;
 
 
 -- Create policies for 'profiles'
@@ -241,6 +257,16 @@ CREATE POLICY "Members can delete their own comments." ON public.comments FOR DE
     TO authenticated
     USING ( user_id = auth.uid() );
 
+-- Create policies for 'task_history'
+CREATE POLICY "Admins can manage all history." ON public.task_history FOR ALL
+    USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' );
+
+CREATE POLICY "Users can view history for tasks they can see." ON public.task_history
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (SELECT 1 FROM public.tasks WHERE id = task_id)
+);
 
 -- 4. SET UP USER DELETION
 

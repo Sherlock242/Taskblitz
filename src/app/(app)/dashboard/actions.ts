@@ -3,7 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import type { Task, Comment } from '@/lib/types';
+import type { Task, Comment, AuditTrailItem, TaskHistory } from '@/lib/types';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export async function updateTaskStatus(taskId: string, newStatus: Task['status']) {
@@ -31,6 +31,8 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
   if (taskError || !task) {
     return { error: { message: `Task not found: ${taskError?.message}` } };
   }
+
+  const previousStatus = task.status;
 
   // Check if this is the last task in the workflow
   const supabaseAdminForCheck = createAdminClient(
@@ -133,6 +135,25 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: `Failed to update task status: ${error.message}` } };
   }
 
+  if (updatePayload.status && updatePayload.status !== previousStatus) {
+    const supabaseAdminForHistory = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const { error: historyError } = await supabaseAdminForHistory.from('task_history').insert({
+        task_id: taskId,
+        user_id: currentUser.id,
+        previous_status: previousStatus,
+        new_status: updatePayload.status,
+    });
+
+    if (historyError) {
+        // Log this error, but don't fail the whole operation since the primary action (status update) succeeded.
+        console.error("Failed to log task history:", historyError);
+    }
+  }
+
   revalidatePath('/dashboard');
   return { error: null };
 }
@@ -189,12 +210,12 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
   return { data: { message: 'Task updated successfully.' } };
 }
 
-export async function getComments(taskId: string) {
+export async function getAuditTrail(taskId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-      return { error: { message: 'You must be logged in to view comments.' } };
+      return { error: { message: 'You must be logged in to view activity.' } };
   }
   
   const supabaseAdmin = createAdminClient(
@@ -203,24 +224,34 @@ export async function getComments(taskId: string) {
       { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  // 1. Fetch comments without the join
+  // 1. Fetch comments and history
   const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
     .select('*')
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: true });
+    .eq('task_id', taskId);
     
   if (commentsError) {
-    console.error("Error fetching comments with admin client:", commentsError);
+    console.error("Error fetching comments:", commentsError);
     return { error: { message: `Failed to fetch comments: ${commentsError.message}` } };
   }
-  
-  if (!comments || comments.length === 0) {
+
+  const { data: history, error: historyError } = await supabaseAdmin
+    .from('task_history')
+    .select('*')
+    .eq('task_id', taskId);
+
+  if (historyError) {
+    console.error("Error fetching history:", historyError);
+    return { error: { message: `Failed to fetch history: ${historyError.message}` } };
+  }
+
+  const allItems = [...(comments || []), ...(history || [])];
+  if (allItems.length === 0) {
     return { data: [] };
   }
 
-  // 2. Get unique user IDs from comments
-  const userIds = [...new Set(comments.map(c => c.user_id))];
+  // 2. Get unique user IDs from both
+  const userIds = [...new Set(allItems.map(i => i.user_id))];
 
   // 3. Fetch profiles for those user IDs
   const { data: profiles, error: profilesError } = await supabaseAdmin
@@ -229,20 +260,33 @@ export async function getComments(taskId: string) {
     .in('id', userIds);
 
   if (profilesError) {
-    console.error("Error fetching profiles with admin client:", profilesError);
-    // We can still return comments, just without profile info
-    return { data: comments.map(c => ({...c, profiles: null})) as Comment[] };
+    console.error("Error fetching profiles:", profilesError);
+    return { error: { message: `Failed to fetch profiles: ${profilesError.message}` } };
   }
   
   const profileMap = new Map(profiles.map(p => [p.id, {name: p.name, avatar_url: p.avatar_url}]));
 
-  // 4. Manually join the data
-  const data = comments.map(comment => ({
+  // 4. Manually join and format the data
+  const formattedComments = (comments || []).map(comment => ({
     ...comment,
-    profiles: profileMap.get(comment.user_id) || null
+    profiles: profileMap.get(comment.user_id) || null,
+    type: 'comment' as const,
+    date: comment.created_at
   }));
 
-  return { data: data as Comment[] };
+  const formattedHistory = (history || []).map(item => ({
+    ...item,
+    profiles: profileMap.get(item.user_id) || null,
+    type: 'status_change' as const,
+    date: item.changed_at
+  }));
+
+  const auditTrail: AuditTrailItem[] = [...formattedComments, ...formattedHistory];
+
+  // 5. Sort chronologically
+  auditTrail.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  return { data: auditTrail };
 }
 
 export async function addComment(taskId: string, content: string) {

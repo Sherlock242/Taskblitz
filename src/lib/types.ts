@@ -45,3 +45,17 @@ export type Comment = {
   created_at: string;
   profiles: Pick<User, 'name' | 'avatar_url'> | null;
 };
+
+export type TaskHistory = {
+  id: string;
+  task_id: string;
+  user_id: string;
+  previous_status: string | null;
+  new_status: string;
+  changed_at: string;
+  profiles: Pick<User, 'name' | 'avatar_url'> | null;
+};
+
+export type AuditTrailItem =
+  | (Comment & { type: 'comment', date: string })
+  | (TaskHistory & { type: 'status_change', date: string });
