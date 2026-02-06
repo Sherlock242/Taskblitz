@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserRole } from './actions';
+import { DeleteUserDialog } from './delete-user-dialog';
 
 
 interface UsersClientProps {
@@ -86,6 +87,7 @@ export function UsersClient({ users, currentUserId, currentUserRole }: UsersClie
                                                     <SelectItem value="Member">Member</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            <DeleteUserDialog userId={user.id} userName={user.name} />
                                         </>
                                     ) : (
                                         <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
@@ -111,7 +113,7 @@ export function UsersClient({ users, currentUserId, currentUserRole }: UsersClie
                         <TableRow>
                             <TableHead>User</TableHead>
                             <TableHead>Email</TableHead>
-                            <TableHead className="text-right">Role</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -144,6 +146,7 @@ export function UsersClient({ users, currentUserId, currentUserRole }: UsersClie
                                                         <SelectItem value="Member">Member</SelectItem>
                                                     </SelectContent>
                                                 </Select>
+                                                <DeleteUserDialog userId={user.id} userName={user.name} />
                                             </>
                                         ) : (
                                             <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
