@@ -120,7 +120,7 @@ async function DashboardData() {
     const dateA = new Date(a.created_at).getTime();
     const dateB = new Date(b.created_at).getTime();
     if (dateA !== dateB) {
-      return dateA - dateB;
+      return dateB - dateA;
     }
     return (a.position ?? 0) - (b.position ?? 0);
   });
@@ -153,3 +153,5 @@ function DashboardSkeleton() {
     </Card>
   )
 }
+
+    

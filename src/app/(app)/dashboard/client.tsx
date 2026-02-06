@@ -95,6 +95,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
             assigner: Pick<User, 'name' | 'avatar_url'> | null;
             assignee: Pick<User, 'name' | 'avatar_url'> | null;
             reviewer: Pick<User, 'name' | 'avatar_url'> | null;
+            lastActivity: Date;
         }> = {};
 
         const tasksByWorkflow: Record<string, TaskWithRelations[]> = {};
@@ -111,6 +112,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
             workflowTasks.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
             const firstTask = workflowTasks[0];
             if (!firstTask) continue;
+            
+            const lastActivityDate = workflowTasks.reduce((latest, task) => {
+                const taskDate = new Date(task.updated_at || task.created_at);
+                return taskDate > latest ? taskDate : latest;
+            }, new Date(0));
+
             const templateName = firstTask.templates?.name || 'General Tasks';
             const templateDescription = firstTask.templates?.description || 'Tasks not associated with a template.';
             groups[workflowId] = {
@@ -121,9 +128,12 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                 assigner: firstTask.assigner,
                 assignee: firstTask.primary_assignee, // Note: this is the assignee of the first task
                 reviewer: firstTask.reviewer,
+                lastActivity: lastActivityDate,
             };
         }
-        return Object.values(groups);
+        
+        const sortedGroups = Object.values(groups).sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+        return sortedGroups;
     };
     
     if (userRole === 'Admin') {
@@ -472,4 +482,5 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   );
 }
 
+    
     
