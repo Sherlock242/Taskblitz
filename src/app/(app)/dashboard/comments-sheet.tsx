@@ -134,7 +134,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    className="h-7 w-7"
                                                     onClick={() => handleDeleteComment(item.id)}
                                                     disabled={isDeleting}
                                                     aria-label="Delete comment"
