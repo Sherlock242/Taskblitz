@@ -20,6 +20,7 @@ export function EditTaskDialog({ task }: { task: Task }) {
     const [name, setName] = useState(task.name);
     const [description, setDescription] = useState(task.description || '');
     const [deadline, setDeadline] = useState<Date | undefined>(task.deadline ? new Date(task.deadline) : undefined);
+    const [calendarOpen, setCalendarOpen] = useState(false);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
@@ -95,7 +96,7 @@ export function EditTaskDialog({ task }: { task: Task }) {
                     </div>
                      <div className="grid items-center gap-2">
                         <Label htmlFor="deadline">Deadline</Label>
-                        <Popover>
+                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                 variant={"outline"}
@@ -112,7 +113,10 @@ export function EditTaskDialog({ task }: { task: Task }) {
                                 <Calendar
                                 mode="single"
                                 selected={deadline}
-                                onSelect={setDeadline}
+                                onSelect={(date) => {
+                                    setDeadline(date);
+                                    setCalendarOpen(false);
+                                }}
                                 initialFocus
                                 />
                             </PopoverContent>
