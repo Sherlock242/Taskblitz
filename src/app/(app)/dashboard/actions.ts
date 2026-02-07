@@ -341,6 +341,7 @@ export async function addComment(taskId: string, content: string) {
     return { error: { message: `Failed to add comment: ${error.message}` } };
   }
 
+  revalidatePath('/dashboard/comments-sheet');
   return { data: { message: 'Comment added.' } };
 }
 
@@ -385,5 +386,6 @@ export async function deleteComment(commentId: string) {
     return { error: { message: `Failed to delete comment: ${error.message}` } };
   }
 
+  revalidatePath('/dashboard/comments-sheet');
   return { data: { message: 'Comment deleted.' } };
 }
