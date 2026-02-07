@@ -64,7 +64,12 @@ export async function logout() {
 }
 
 export async function requestPasswordReset(formData: FormData) {
-  const origin = headers().get('origin')
+  const headersList = headers();
+  const host = headersList.get('host');
+  // Ensure we have a protocol. In production, 'x-forwarded-proto' is common.
+  const protocol = headersList.get('x-forwarded-proto') || (process.env.NODE_ENV === 'development' ? 'http' : 'https');
+  const origin = `${protocol}://${host}`;
+  
   const email = formData.get('email') as string
   const supabase = createClient()
 
