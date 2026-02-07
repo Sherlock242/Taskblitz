@@ -19,6 +19,12 @@ export function ResetPasswordForm() {
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
+    // This page is for users who have followed a password reset link from their email.
+    // The link contains a `?code=` query parameter. The Supabase client library
+    // automatically handles this code, exchanges it for a temporary, secure session,
+    // and then fires a 'PASSWORD_RECOVERY' event.
+
+    // We listen for this event to know when it is safe to show the password reset form.
     const supabase = createClient();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -28,11 +34,14 @@ export function ResetPasswordForm() {
         }
     });
 
-    // Failsafe: if after a few seconds the event hasn't fired, stop loading.
-    // This handles cases where the link is truly invalid or expired.
+    // IMPORTANT: If this page shows an "Invalid" error, it's often because the
+    // 'PASSWORD_RECOVERY' event is not firing in time. This can be caused by a 
+    // misconfiguration in Supabase Auth settings or by network latency.
+    // We include a timeout as a failsafe. If the event doesn't fire in 5 seconds,
+    // we stop loading and show the error. This prevents the page from loading indefinitely.
     const timer = setTimeout(() => {
         setLoading(false);
-    }, 3000);
+    }, 5000); // Wait 5 seconds
 
     return () => {
         subscription.unsubscribe();
