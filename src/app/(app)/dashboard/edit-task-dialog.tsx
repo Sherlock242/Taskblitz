@@ -9,20 +9,14 @@ import { useToast } from '@/hooks/use-toast';
 import { updateTask } from './actions';
 import type { Task } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
-import { Edit, CalendarIcon } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { Edit } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 
 export function EditTaskDialog({ task }: { task: Task }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(task.name);
     const [description, setDescription] = useState(task.description || '');
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-        task.deadline ? new Date(task.deadline) : undefined
-    );
-    const [isCalendarOpen, setCalendarOpen] = useState(false);
+    const [deadline, setDeadline] = useState('');
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
@@ -31,14 +25,9 @@ export function EditTaskDialog({ task }: { task: Task }) {
         if (open) {
             setName(task.name);
             setDescription(task.description || '');
-            setSelectedDate(task.deadline ? new Date(task.deadline) : undefined);
+            setDeadline(task.deadline ? format(new Date(task.deadline), 'yyyy-MM-dd') : '');
         }
     }, [open, task]);
-
-    const handleDateSelect = (date: Date | undefined) => {
-        setSelectedDate(date);
-        setCalendarOpen(false); // Close calendar after selection
-    };
     
     const handleSubmit = async () => {
         if (!name) {
@@ -54,7 +43,7 @@ export function EditTaskDialog({ task }: { task: Task }) {
             const result = await updateTask(task.id, { 
                 name, 
                 description, 
-                deadline: selectedDate ? selectedDate.toISOString() : null 
+                deadline: deadline ? new Date(deadline).toISOString() : null 
             });
 
             if (result.error) {
@@ -104,28 +93,12 @@ export function EditTaskDialog({ task }: { task: Task }) {
                     </div>
                      <div className="grid items-center gap-2">
                         <Label htmlFor="deadline">Deadline</Label>
-                        <Popover open={isCalendarOpen} onOpenChange={setCalendarOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                variant={"outline"}
-                                className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !selectedDate && "text-muted-foreground"
-                                )}
-                                >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={selectedDate}
-                                    onSelect={handleDateSelect}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
+                        <Input
+                            id="deadline"
+                            type="date"
+                            value={deadline}
+                            onChange={(e) => setDeadline(e.target.value)}
+                        />
                     </div>
                 </div>
                 <DialogFooter>
