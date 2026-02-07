@@ -1,4 +1,4 @@
-'use client'
+"use client"
 
 import { useEffect, useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -21,29 +21,23 @@ export function ResetPasswordForm() {
   useEffect(() => {
     const supabase = createClient();
     
-    // Only proceed if the URL hash contains Supabase auth tokens
-    if (window.location.hash.includes('access_token')) {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-            if (event === 'PASSWORD_RECOVERY') {
-                setIsSession(true);
-                setLoading(false);
-            }
-        });
-
-        // Failsafe: if after a few seconds the event hasn't fired, stop loading
-        const timer = setTimeout(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') {
+            setIsSession(true);
             setLoading(false);
-        }, 5000);
+        }
+    });
 
-        return () => {
-            subscription.unsubscribe();
-            clearTimeout(timer);
-        };
-    } else {
-        // No token in URL, so the link is invalid.
+    // Failsafe: if after a few seconds the event hasn't fired, stop loading.
+    // This handles cases where the link is truly invalid or expired.
+    const timer = setTimeout(() => {
         setLoading(false);
-        setIsSession(false);
-    }
+    }, 3000);
+
+    return () => {
+        subscription.unsubscribe();
+        clearTimeout(timer);
+    };
   }, []);
   
   const handleSubmit = (formData: FormData) => {
