@@ -1,4 +1,3 @@
-
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
@@ -200,7 +199,13 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
       return { error: { message: 'Only admins can edit tasks.' } };
   }
 
-  const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
+  const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { error } = await supabaseAdmin.from('tasks').update(updates).eq('id', taskId);
 
   if (error) {
     return { error: { message: `Failed to update task: ${error.message}` } };
