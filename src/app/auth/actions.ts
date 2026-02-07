@@ -64,16 +64,10 @@ export async function logout() {
 }
 
 export async function requestPasswordReset(formData: FormData) {
-  const headersList = headers();
-  const host = headersList.get('host');
-  // Ensure we have a protocol. In production, 'x-forwarded-proto' is common.
-  const protocol = headersList.get('x-forwarded-proto') || (process.env.NODE_ENV === 'development' ? 'http' : 'https');
-  const origin = `${protocol}://${host}`;
-  
   const email = formData.get('email') as string
   const supabase = createClient()
 
-  const redirectTo = `${origin}/reset-password`
+  const redirectTo = 'https://taskblitsz.netlify.app/reset-password'
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
