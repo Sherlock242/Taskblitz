@@ -20,29 +20,30 @@ export function ResetPasswordForm() {
 
   useEffect(() => {
     const supabase = createClient();
-    let recoveryHandled = false;
+    
+    // Only proceed if the URL hash contains Supabase auth tokens
+    if (window.location.hash.includes('access_token')) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                setIsSession(true);
+                setLoading(false);
+            }
+        });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'PASSWORD_RECOVERY') {
-            recoveryHandled = true;
-            setIsSession(true);
+        // Failsafe: if after a few seconds the event hasn't fired, stop loading
+        const timer = setTimeout(() => {
             setLoading(false);
-        }
-    });
+        }, 5000);
 
-    // If after a few seconds the PASSWORD_RECOVERY event hasn't fired,
-    // we can assume the link is invalid and stop loading.
-    const timer = setTimeout(() => {
-        if (!recoveryHandled) {
-            setLoading(false);
-        }
-    }, 3000);
-
-
-    return () => {
-        subscription.unsubscribe();
-        clearTimeout(timer);
-    };
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(timer);
+        };
+    } else {
+        // No token in URL, so the link is invalid.
+        setLoading(false);
+        setIsSession(false);
+    }
   }, []);
   
   const handleSubmit = (formData: FormData) => {
