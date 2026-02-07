@@ -193,13 +193,38 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
       return { error: { message: 'You must be logged in.' } };
   }
 
-  // The RLS policy for updating tasks already checks if the user is an Admin
-  // or if they are otherwise involved in the task. By using the standard 'supabase' client,
-  // we let the database's security rules handle the permission check, which is more robust.
-  const { error } = await supabase
-    .from('tasks')
-    .update(updates)
-    .eq('id', taskId);
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  const isAdmin = profile?.role === 'Admin';
+  
+  let error;
+
+  if (isAdmin) {
+    // If the user is an admin, use the service_role key to bypass RLS.
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    
+    const { error: adminError } = await supabaseAdmin
+      .from('tasks')
+      .update(updates)
+      .eq('id', taskId);
+    error = adminError;
+
+  } else {
+    // For non-admins, use the standard client which respects the user's RLS policies.
+    const { error: userError } = await supabase
+      .from('tasks')
+      .update(updates)
+      .eq('id', taskId);
+    error = userError;
+  }
 
   if (error) {
     return { error: { message: `Failed to update task: ${error.message}` } };
