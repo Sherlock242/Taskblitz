@@ -20,23 +20,24 @@ export function ResetPasswordForm() {
 
   useEffect(() => {
     const supabase = createClient();
-    
-    // Supabase client library automatically handles the URL hash.
-    // The `onAuthStateChange` listener will fire with a `PASSWORD_RECOVERY` event
-    // if the user has followed a valid password reset link.
+    let recoveryHandled = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
         if (event === 'PASSWORD_RECOVERY') {
+            recoveryHandled = true;
             setIsSession(true);
             setLoading(false);
         }
     });
 
-    // As a fallback, if the `PASSWORD_RECOVERY` event does not fire after a
-    // few seconds, we assume the link is invalid or has expired. This prevents
-    // the user from being stuck on a loading screen indefinitely.
+    // If after a few seconds the PASSWORD_RECOVERY event hasn't fired,
+    // we can assume the link is invalid and stop loading.
     const timer = setTimeout(() => {
-        setLoading(false);
-    }, 2500);
+        if (!recoveryHandled) {
+            setLoading(false);
+        }
+    }, 3000);
+
 
     return () => {
         subscription.unsubscribe();
