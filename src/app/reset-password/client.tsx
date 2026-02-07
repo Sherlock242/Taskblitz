@@ -19,29 +19,34 @@ export function ResetPasswordForm() {
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    // This page is for users who have followed a password reset link from their email.
-    // The link contains a `?code=` query parameter. The Supabase client library
-    // automatically handles this code, exchanges it for a temporary, secure session,
-    // and then fires a 'PASSWORD_RECOVERY' event.
-
-    // We listen for this event to know when it is safe to show the password reset form.
+    // Per Supabase docs, the password reset link is a magic link that logs the user in.
+    // We listen for the SIGNED_IN event to know when it's safe to show the form.
     const supabase = createClient();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'PASSWORD_RECOVERY') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN') {
             setIsSession(true);
             setLoading(false);
+            // We can unsubscribe now that we have what we need.
+            subscription.unsubscribe();
         }
     });
 
-    // IMPORTANT: If this page shows an "Invalid" error, it's often because the
-    // 'PASSWORD_RECOVERY' event is not firing in time. This can be caused by a 
-    // misconfiguration in Supabase Auth settings or by network latency.
-    // We include a timeout as a failsafe. If the event doesn't fire in 5 seconds,
-    // we stop loading and show the error. This prevents the page from loading indefinitely.
+    // Also check for an existing session in case the event fired before the listener was attached.
+    const checkSession = async () => {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+            setIsSession(true);
+            setLoading(false);
+            subscription.unsubscribe();
+        }
+    }
+    checkSession();
+
+    // Add a fallback timer. If after 3 seconds we still don't have a session,
+    // assume the link is invalid. This handles expired links.
     const timer = setTimeout(() => {
         setLoading(false);
-    }, 5000); // Wait 5 seconds
+    }, 3000);
 
     return () => {
         subscription.unsubscribe();
