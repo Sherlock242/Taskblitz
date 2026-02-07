@@ -19,20 +19,26 @@ export function EditTaskDialog({ task }: { task: Task }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(task.name);
     const [description, setDescription] = useState(task.description || '');
-    const [deadline, setDeadline] = useState<Date | undefined>(
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(
         task.deadline ? new Date(task.deadline) : undefined
     );
-    const [calendarOpen, setCalendarOpen] = useState(false);
+    const [isCalendarOpen, setCalendarOpen] = useState(false);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
+    // When the dialog opens, reset the state from the task prop
     useEffect(() => {
         if (open) {
             setName(task.name);
             setDescription(task.description || '');
-            setDeadline(task.deadline ? new Date(task.deadline) : undefined);
+            setSelectedDate(task.deadline ? new Date(task.deadline) : undefined);
         }
     }, [open, task]);
+
+    const handleDateSelect = (date: Date | undefined) => {
+        setSelectedDate(date);
+        setCalendarOpen(false); // Close calendar after selection
+    };
     
     const handleSubmit = async () => {
         if (!name) {
@@ -48,7 +54,7 @@ export function EditTaskDialog({ task }: { task: Task }) {
             const result = await updateTask(task.id, { 
                 name, 
                 description, 
-                deadline: deadline ? deadline.toISOString() : null 
+                deadline: selectedDate ? selectedDate.toISOString() : null 
             });
 
             if (result.error) {
@@ -98,27 +104,24 @@ export function EditTaskDialog({ task }: { task: Task }) {
                     </div>
                      <div className="grid items-center gap-2">
                         <Label htmlFor="deadline">Deadline</Label>
-                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                        <Popover open={isCalendarOpen} onOpenChange={setCalendarOpen}>
                             <PopoverTrigger asChild>
                                 <Button
                                 variant={"outline"}
                                 className={cn(
                                     "w-full justify-start text-left font-normal",
-                                    !deadline && "text-muted-foreground"
+                                    !selectedDate && "text-muted-foreground"
                                 )}
                                 >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {deadline ? format(deadline, "PPP") : <span>Pick a date</span>}
+                                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                                 <Calendar
                                     mode="single"
-                                    selected={deadline}
-                                    onSelect={(date) => {
-                                        setDeadline(date);
-                                        setCalendarOpen(false);
-                                    }}
+                                    selected={selectedDate}
+                                    onSelect={handleDateSelect}
                                     initialFocus
                                 />
                             </PopoverContent>
