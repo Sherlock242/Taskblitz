@@ -19,7 +19,9 @@ export function EditTaskDialog({ task }: { task: Task }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(task.name);
     const [description, setDescription] = useState(task.description || '');
-    const [deadline, setDeadline] = useState<Date | undefined>(task.deadline ? new Date(task.deadline) : undefined);
+    const [deadline, setDeadline] = useState<Date | undefined>(
+        task.deadline ? new Date(task.deadline) : undefined
+    );
     const [calendarOpen, setCalendarOpen] = useState(false);
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
@@ -111,13 +113,13 @@ export function EditTaskDialog({ task }: { task: Task }) {
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                                 <Calendar
-                                mode="single"
-                                selected={deadline}
-                                onSelect={(date) => {
-                                    setDeadline(date);
-                                    setCalendarOpen(false);
-                                }}
-                                initialFocus
+                                    mode="single"
+                                    selected={deadline}
+                                    onSelect={(date) => {
+                                        setDeadline(date);
+                                        setCalendarOpen(false);
+                                    }}
+                                    initialFocus
                                 />
                             </PopoverContent>
                         </Popover>
