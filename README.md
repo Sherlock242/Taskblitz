@@ -56,14 +56,19 @@ SUPABASE_ACCESS_TOKEN=YOUR_CLI_ACCESS_TOKEN
 
 ### 4. Supabase CLI Usage
 
-The project is initialized with the Supabase CLI. You can use it to link your project and manage your database.
+The project is initialized with the Supabase CLI.
 
-1.  **Link your project**:
+1.  **Initialize Supabase (if not already done)**:
     ```bash
-    npx supabase link --project-ref izcuehanxzfcdietlnig
+    npx supabase init
     ```
 
-2.  **Pull changes or dump schema**:
+2.  **Link your project**:
+    ```bash
+    npx supabase link --project-ref izcuehamxzfcdietlmig
+    ```
+
+3.  **Pull changes or dump schema**:
     ```bash
     npx supabase db pull
     # or
