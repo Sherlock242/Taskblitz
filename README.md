@@ -54,19 +54,21 @@ SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
 SUPABASE_ACCESS_TOKEN=YOUR_CLI_ACCESS_TOKEN
 ```
 
-### 4. Initialize Supabase CLI (Optional)
+### 4. Supabase CLI Usage
 
-If you want to use the Supabase CLI (as seen in your terminal), you must initialize it in the project root first:
+The project is initialized with the Supabase CLI. You can use it to link your project and manage your database.
 
-```bash
-npx supabase init
-```
+1.  **Link your project**:
+    ```bash
+    npx supabase link --project-ref izcuehanxzfcdietlnig
+    ```
 
-This creates the `supabase/` directory and `config.toml` file. Once initialized, you can link your project:
-
-```bash
-npx supabase link --project-ref your-project-id
-```
+2.  **Pull changes or dump schema**:
+    ```bash
+    npx supabase db pull
+    # or
+    npx supabase db dump --schema public > schema.sql
+    ```
 
 ### 5. Set Up the Database Schema
 

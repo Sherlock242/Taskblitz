@@ -1,0 +1,22 @@
+[project]
+id = "izcuehanxzfcdietlnig"
+
+[api]
+port = 54321
+schemas = ["public", "graphql", "realtime"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+
+[studio]
+port = 54323
+
+[auth]
+site_url = "http://localhost:9002"
+additional_redirect_urls = ["https://taskblitsz.netlify.app/reset-password"]
+
+[storage]
+enabled = true
