@@ -21,7 +21,7 @@ Before you begin, ensure you have the following installed on your local machine:
 - [Node.js](https://nodejs.org/) (v18 or later)
 - [npm](https://www.npmjs.com/)
 - A [Supabase](https://supabase.com/) account.
-- **Docker Desktop**: Required for Supabase CLI operations like `db dump`, `db pull`, or `db push`.
+- **Docker**: Required for Supabase CLI operations like `db dump`, `db pull`, or `db push`.
 
 ## Setup Instructions
 
@@ -57,7 +57,37 @@ SUPABASE_ACCESS_TOKEN=YOUR_CLI_ACCESS_TOKEN
 
 Note that some Supabase CLI commands (like `db dump` or `db pull`) require **Docker** to be running on the host machine. 
 - **Cloud IDEs/Browser Terminals**: These environments typically do not support Docker. In these cases, manage your database schema directly via the [Supabase Dashboard SQL Editor](https://supabase.com/dashboard).
-- **Local Development**: To use the full power of the CLI, clone the repository to your local machine and ensure **Docker Desktop** is installed and running.
+- **Local Development**: To use the full power of the CLI, clone the repository to your local machine and ensure **Docker** is installed and running.
+
+## Local Linux Docker Installation (Ubuntu/Debian)
+
+If you are setting up your project on a local Linux machine, use these commands to install Docker:
+
+```bash
+# 1. Update your package index
+sudo apt-get update
+
+# 2. Install prerequisites
+sudo apt-get install ca-certificates curl gnupg
+
+# 3. Add Docker’s official GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# 4. Set up the repository
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# 5. Install Docker Engine
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# 6. Verify installation
+sudo docker run hello-world
+```
 
 ## How to Run
 
