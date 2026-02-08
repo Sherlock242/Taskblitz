@@ -1,3 +1,4 @@
+
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
@@ -109,7 +110,6 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
         .maybeSingle();
 
     if (nextTask) {
-        // Status is already 'Approved'
         const { error: updateNextError } = await supabaseAdmin
             .from('tasks')
             .update({ status: 'Assigned' })
@@ -148,7 +148,6 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     });
 
     if (historyError) {
-        // Log this error, but don't fail the whole operation since the primary action (status update) succeeded.
         console.error("Failed to log task history:", historyError);
     }
   }
@@ -204,7 +203,6 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
   let error;
 
   if (isAdmin) {
-    // If the user is an admin, use the service_role key to bypass RLS.
     const supabaseAdmin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -218,7 +216,6 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
     error = adminError;
 
   } else {
-    // For non-admins, use the standard client which respects the user's RLS policies.
     const { error: userError } = await supabase
       .from('tasks')
       .update(updates)
@@ -248,7 +245,6 @@ export async function getAuditTrail(taskId: string) {
       { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  // 1. Fetch comments and history
   const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
     .select('*')
@@ -274,10 +270,8 @@ export async function getAuditTrail(taskId: string) {
     return { data: [] };
   }
 
-  // 2. Get unique user IDs from both
   const userIds = [...new Set(allItems.map(i => i.user_id))];
 
-  // 3. Fetch profiles for those user IDs
   const { data: profiles, error: profilesError } = await supabaseAdmin
     .from('profiles')
     .select('id, name, avatar_url')
@@ -290,7 +284,6 @@ export async function getAuditTrail(taskId: string) {
   
   const profileMap = new Map(profiles.map(p => [p.id, {name: p.name, avatar_url: p.avatar_url}]));
 
-  // 4. Manually join and format the data
   const formattedComments = (comments || []).map(comment => ({
     ...comment,
     profiles: profileMap.get(comment.user_id) || null,
@@ -307,7 +300,6 @@ export async function getAuditTrail(taskId: string) {
 
   const auditTrail: AuditTrailItem[] = [...formattedComments, ...formattedHistory];
 
-  // 5. Sort chronologically
   auditTrail.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return { data: auditTrail };
@@ -369,10 +361,8 @@ export async function deleteComment(commentId: string) {
       return { error: { message: 'Comment not found.' } };
   }
 
-  // Check if user is admin
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
   
-  // Allow deletion if user is the comment owner or an admin
   if (comment.user_id !== user.id && profile?.role !== 'Admin') {
       return { error: { message: "You don't have permission to delete this comment." } };
   }

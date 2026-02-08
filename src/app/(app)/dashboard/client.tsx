@@ -126,7 +126,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                 description: templateDescription,
                 tasks: workflowTasks,
                 assigner: firstTask.assigner,
-                assignee: firstTask.primary_assignee, // Note: this is the assignee of the first task
+                assignee: firstTask.primary_assignee,
                 reviewer: firstTask.reviewer,
                 lastActivity: lastActivityDate,
             };
@@ -164,21 +164,19 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
             
             const tasksForDisplay = workflow.tasks.filter(task => {
                 // SEQUENTIAL WORKFLOW LOGIC:
-                // Hide 'Pending' tasks from members. They only see tasks when they are Assigned/In Progress/etc.
+                // Hide 'Pending' tasks from members.
                 if (task.status === 'Pending') return false;
 
-                // Show if I'm the assignee (Assignee sees their task through all phases including In Progress and Done)
+                // Show if I'm the assignee
                 if (task.primary_assignee_id === currentUserId) return true;
                 
                 // Show if I'm the reviewer AND the task requires my action or feedback
-                // We hide tasks from the reviewer when they are 'In Progress' (assignee working)
-                // We also hide tasks from the reviewer once 'Approved' or 'Completed' to keep their queue focused.
-                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested'].includes(task.status)) return true;
+                // UPDATED: Now staying visible for 'Approved' and 'Changes Requested', only disappearing when 'Completed'.
+                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved'].includes(task.status)) return true;
                 
                 return false;
             });
 
-            // If after filtering, there are no tasks for this user to see, skip the workflow
             if (tasksForDisplay.length === 0) {
                 return null;
             }
@@ -257,7 +255,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                           const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                           const nextStatuses = getNextStatuses(task, isLastTask);
-                          const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
+                          const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0 && task.status !== 'Completed';
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
 
@@ -374,7 +372,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                                   const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
-                                  const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0;
+                                  const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0 && task.status !== 'Completed';
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
 
@@ -417,7 +415,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                   </Select>
                                               ) : (
                                                   <span className="text-sm text-muted-foreground">
-                                                      {task.status}
+                                                      {displayStatus}
                                                   </span>
                                               )}
                                               </div>
