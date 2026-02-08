@@ -14,7 +14,7 @@ shadow_port = 54320
 port = 54323
 
 [auth]
-site_url = "http://localhost:9002"
+site_url = "https://taskblitsz.netlify.app/login"
 additional_redirect_urls = ["https://taskblitsz.netlify.app/reset-password"]
 
 [storage]

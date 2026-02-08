@@ -67,6 +67,7 @@ The project is initialized with the Supabase CLI (v2.75.0).
     ```bash
     npx supabase link --project-ref izcuehamxzfcdietlmig
     ```
+    *Note: You will be asked for your Database Password. This can be reset in your Supabase Dashboard under Settings > Database.*
 
 3.  **Pull changes or dump schema**:
     ```bash
