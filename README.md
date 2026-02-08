@@ -56,9 +56,9 @@ SUPABASE_ACCESS_TOKEN=YOUR_CLI_ACCESS_TOKEN
 
 ### 4. Supabase CLI Usage
 
-The project is initialized with the Supabase CLI.
+The project is initialized with the Supabase CLI (v2.75.0).
 
-1.  **Initialize Supabase (if not already done)**:
+1.  **Initialize Supabase**:
     ```bash
     npx supabase init
     ```

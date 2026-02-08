@@ -1,1 +1,0 @@
-supabase is not installed, but available in package supabase-cli, press [Enter] to run it, Ctrl+C to cancel.
