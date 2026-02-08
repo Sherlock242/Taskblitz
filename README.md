@@ -21,6 +21,7 @@ Before you begin, ensure you have the following installed on your local machine:
 - [Node.js](https://nodejs.org/) (v18 or later recommended)
 - [npm](https://www.npmjs.com/) (comes with Node.js) or [Yarn](https://yarnpkg.com/)
 - A [Supabase](https://supabase.com/) account to create your database.
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (optional, for database management)
 
 ## Setup Instructions
 
@@ -53,9 +54,21 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
 ```
 
-You can find your `Project URL` and `anon` public key in your Supabase project's **API settings**. The `SUPABASE_SERVICE_ROLE_KEY` is the `service_role` secret, also found in the API settings under the "Project API keys" section. **This key must be kept secret.**
+### 4. Initialize Supabase CLI (Optional)
 
-### 4. Set Up the Database Schema
+If you want to use the Supabase CLI (as seen in your terminal), you must initialize it in the project root first:
+
+```bash
+supabase init
+```
+
+This creates the `supabase/` directory and `config.toml` file. Once initialized, you can link your project:
+
+```bash
+supabase link --project-ref your-project-id
+```
+
+### 5. Set Up the Database Schema
 
 You need to run a SQL script in your Supabase project to create the necessary tables (`profiles`, `templates`, `tasks`), set up permissions, and configure storage.
 
@@ -168,39 +181,6 @@ ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_history ENABLE ROW LEVEL SECURITY;
 
--- Drop old policies before creating new ones
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
-DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
-DROP POLICY IF EXISTS "Admins can update any profile." ON public.profiles;
-DROP POLICY IF EXISTS "Templates are viewable by authenticated users." ON public.templates;
-DROP POLICY IF EXISTS "Admins can manage templates." ON public.templates;
-
--- Drop all old policies for tasks to ensure a clean slate
-DROP POLICY IF EXISTS "Users can view their assigned or submitted tasks." ON public.tasks;
-DROP POLICY IF EXISTS "Admins can view all tasks." ON public.tasks;
-DROP POLICY IF EXISTS "Users can view their own assigned or reviewable tasks." ON public.tasks;
-DROP POLICY IF EXISTS "Users can view tasks where they are involved." ON public.tasks;
-DROP POLICY IF EXISTS "Users can insert tasks." ON public.tasks;
-DROP POLICY IF EXISTS "Users can update their own tasks, Admins can update any." ON public.tasks;
-DROP POLICY IF EXISTS "Users and Admins can update tasks based on workflow role." ON public.tasks;
-DROP POLICY IF EXISTS "Users involved in a task can update it." ON public.tasks;
-DROP POLICY IF EXISTS "Admins can delete tasks." ON public.tasks;
-
--- Drop all old policies for comments
-DROP POLICY IF EXISTS "Admins can manage all comments." ON public.comments;
-DROP POLICY IF EXISTS "Members can view comments on their assigned or submitted tasks." ON public.comments;
-DROP POLICY IF EXISTS "Members can create comments on their assigned or submitted tasks." ON public.comments;
-DROP POLICY IF EXISTS "Members can update their own comments." ON public.comments;
-DROP POLICY IF EXISTS "Members can delete their own comments." ON public.comments;
-DROP POLICY IF EXISTS "Members can view comments on tasks they can see." ON public.comments;
-DROP POLICY IF EXISTS "Members can create comments on tasks they can see." ON public.comments;
-
--- Drop all old policies for task history
-DROP POLICY IF EXISTS "Users can view history for tasks they can see." ON public.task_history;
-DROP POLICY IF EXISTS "Admins can manage all history." ON public.task_history;
-
-
 -- Create policies for 'profiles'
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
@@ -267,51 +247,6 @@ TO authenticated
 USING (
     EXISTS (SELECT 1 FROM public.tasks WHERE id = task_id)
 );
-
--- 4. SET UP USER DELETION
-
--- Create a function to allow a user to delete their own account
-create or replace function public.delete_own_user_account()
-returns void
-language sql
-security definer
-as $$
-  delete from auth.users where id = auth.uid();
-$$;
-
--- Grant execute permission on the function to authenticated users
-grant execute on function public.delete_own_user_account() to authenticated;
-
-
--- 5. SET UP STORAGE (for avatar uploads)
-
--- Create a bucket for 'avatars' with public access
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('avatars', 'avatars', TRUE)
-ON CONFLICT (id) DO NOTHING;
-
--- Drop old policies before creating new ones
-DROP POLICY IF EXISTS "Avatar images are publicly accessible." ON storage.objects;
-DROP POLICY IF EXISTS "Users can upload their own avatar." ON storage.objects;
-DROP POLICY IF EXISTS "Users can update their own avatar." ON storage.objects;
-
--- Allow public read access to everyone
-CREATE POLICY "Avatar images are publicly accessible."
-ON storage.objects FOR SELECT
-USING ( bucket_id = 'avatars' );
-
--- Allow authenticated users to upload to their own folder in the avatars bucket
-CREATE POLICY "Users can upload their own avatar."
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK ( auth.uid()::text = (storage.foldername(name))[1] AND bucket_id = 'avatars' );
-
--- Allow users to update their own avatar
-CREATE POLICY "Users can update their own avatar."
-ON storage.objects FOR UPDATE
-TO authenticated
-USING ( auth.uid()::text = (storage.foldername(name))[1] );
-
 ```
 
 ## How to Run the Application
