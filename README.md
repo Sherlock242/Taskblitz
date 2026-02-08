@@ -21,6 +21,7 @@ Before you begin, ensure you have the following installed on your local machine:
 - [Node.js](https://nodejs.org/) (v18 or later recommended)
 - [npm](https://www.npmjs.com/) (comes with Node.js) or [Yarn](https://yarnpkg.com/)
 - A [Supabase](https://supabase.com/) account to create your database.
+- **Docker Desktop**: Required for Supabase CLI local database operations like `db dump`, `db pull`, or `db push`.
 
 ## Setup Instructions
 
@@ -75,6 +76,7 @@ The project is initialized with the Supabase CLI (v2.75.0).
     # or
     npx supabase db dump --schema public > schema.sql
     ```
+    *Note: These commands require Docker to be running. If Docker is not available (e.g., in a cloud IDE), you can manually manage your schema via the Supabase SQL Editor.*
 
 ### 5. Set Up the Database Schema
 
