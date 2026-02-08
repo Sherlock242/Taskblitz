@@ -163,6 +163,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         const myWorkflows = allWorkflowGroups.map(workflow => {
             
             const tasksForDisplay = workflow.tasks.filter(task => {
+                // SEQUENTIAL WORKFLOW LOGIC:
+                // Hide 'Pending' tasks from members. They only see tasks when they are Assigned/In Progress/etc.
+                if (task.status === 'Pending') return false;
+
                 // Show if I'm the assignee
                 if (task.primary_assignee_id === currentUserId) return true;
                 
@@ -481,6 +485,3 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
 }
-
-    
-    
