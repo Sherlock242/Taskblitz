@@ -167,11 +167,13 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                 // Hide 'Pending' tasks from members. They only see tasks when they are Assigned/In Progress/etc.
                 if (task.status === 'Pending') return false;
 
-                // Show if I'm the assignee
+                // Show if I'm the assignee (Assignee sees their task through all phases including In Progress and Done)
                 if (task.primary_assignee_id === currentUserId) return true;
                 
-                // Show if I'm the reviewer and the task is in a state relevant to me (i.e. not pending or assigned to someone else)
-                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved', 'Completed'].includes(task.status)) return true;
+                // Show if I'm the reviewer AND the task requires my action or feedback
+                // We hide tasks from the reviewer when they are 'In Progress' (assignee working)
+                // We also hide tasks from the reviewer once 'Approved' or 'Completed' to keep their queue focused.
+                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested'].includes(task.status)) return true;
                 
                 return false;
             });
