@@ -14,11 +14,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { updateTaskStatus } from './actions';
 import { DeleteTaskDialog } from './delete-task-dialog';
-import { Edit, MessageSquare } from 'lucide-react';
 import { EditTaskDialog } from './edit-task-dialog';
 import { CommentsSheet } from './comments-sheet';
 import { formatDistanceToNow } from 'date-fns';
-import { cn } from '@/lib/utils';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -161,19 +159,10 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         const allWorkflowGroups = groupWorkflows(tasks);
         
         const myWorkflows = allWorkflowGroups.map(workflow => {
-            
             const tasksForDisplay = workflow.tasks.filter(task => {
-                // SEQUENTIAL WORKFLOW LOGIC:
-                // Hide 'Pending' tasks from members.
                 if (task.status === 'Pending') return false;
-
-                // Show if I'm the assignee
                 if (task.primary_assignee_id === currentUserId) return true;
-                
-                // Show if I'm the reviewer AND the task requires my action or feedback
-                // UPDATED: Now staying visible for 'Approved' and 'Changes Requested', only disappearing when 'Completed'.
                 if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved'].includes(task.status)) return true;
-                
                 return false;
             });
 
@@ -199,7 +188,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
   );
   
   const WorkflowGroupList = ({ workflows, isReadOnly, currentUserId }: { workflows: any[], isReadOnly: boolean, currentUserId: string }) => {
-    
     if (workflows.length === 0) {
       return (
         <Card>
@@ -255,7 +243,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                           const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                           const nextStatuses = getNextStatuses(task, isLastTask);
-                          const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0 && task.status !== 'Completed';
+                          const canUpdate = userRole === 'Admin' ? nextStatuses.length > 0 : (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
 
@@ -372,7 +360,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                                   const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
-                                  const canUpdate = (userRole === 'Admin' || !isReadOnly) && nextStatuses.length > 0 && task.status !== 'Completed';
+                                  const canUpdate = userRole === 'Admin' ? nextStatuses.length > 0 : (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
 
