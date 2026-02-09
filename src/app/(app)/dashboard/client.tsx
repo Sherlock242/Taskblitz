@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useTransition, useMemo } from 'react';
@@ -243,7 +242,8 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                       {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                           const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                           const nextStatuses = getNextStatuses(task, isLastTask);
-                          const canUpdate = userRole === 'Admin' ? nextStatuses.length > 0 : (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
+                          const isAdmin = userRole === 'Admin';
+                          const canUpdate = isAdmin || (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
 
@@ -261,7 +261,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                       </div>
                                       <div className="flex items-center">
                                           <CommentsSheet task={task} userRole={userRole} currentUserId={currentUserId} />
-                                          {userRole === 'Admin' && (
+                                          {isAdmin && (
                                               <>
                                                   <EditTaskDialog task={task} />
                                                   <DeleteTaskDialog taskId={task.id} taskName={task.name} />
@@ -280,7 +280,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                               disabled={isPending}
                                           >
                                               <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder={userRole === 'Admin' ? task.status : (isReviewStep ? 'Approve / Reject' : 'To Do')} />
+                                                <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
                                               </SelectTrigger>
                                               <SelectContent>
                                                 {nextStatuses.map(status => (
@@ -360,7 +360,8 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                               {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
                                   const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
                                   const nextStatuses = getNextStatuses(task, isLastTask);
-                                  const canUpdate = userRole === 'Admin' ? nextStatuses.length > 0 : (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
+                                  const isAdmin = userRole === 'Admin';
+                                  const canUpdate = isAdmin || (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
 
@@ -393,7 +394,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                                       disabled={isPending}
                                                   >
                                                       <SelectTrigger className="w-[180px]">
-                                                        <SelectValue placeholder={userRole === 'Admin' ? task.status : (isReviewStep ? 'Approve / Reject' : 'To Do')} />
+                                                        <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
                                                       </SelectTrigger>
                                                       <SelectContent>
                                                         {nextStatuses.map(status => (
@@ -411,7 +412,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                           <TableCell className="text-right">
                                               <div className="flex items-center justify-end">
                                                   <CommentsSheet task={task} userRole={userRole} currentUserId={currentUserId} />
-                                                  {userRole === 'Admin' && (
+                                                  {isAdmin && (
                                                       <>
                                                           <EditTaskDialog task={task} />
                                                           <DeleteTaskDialog taskId={task.id} taskName={task.name} />
