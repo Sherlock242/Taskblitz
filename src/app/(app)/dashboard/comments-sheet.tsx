@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useTransition, useEffect, useRef } from "react"
@@ -54,7 +55,8 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
     }, [activity]);
 
 
-    const handleAddComment = async () => {
+    const handleAddComment = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (!newComment.trim()) return;
 
         startPostingTransition(async () => {
@@ -63,7 +65,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 setNewComment("");
-                // Re-fetch activity to show the new one
+                // Re-fetch activity to show the new one manually
                 setError(null);
                 const updatedActivity = await getAuditTrail(task.id);
                 if (updatedActivity.data) {
@@ -82,7 +84,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted", description: result.data?.message });
-                // Re-fetch activity after deletion
+                // Re-fetch activity after deletion manually
                 const updatedActivity = await getAuditTrail(task.id);
                 if (updatedActivity.data) {
                     setActivity(updatedActivity.data);
@@ -171,7 +173,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                     </div>
                 </ScrollArea>
                 <DialogFooter className="mt-auto pt-4 border-t">
-                    <form action={handleAddComment} className="flex w-full items-center space-x-2">
+                    <form onSubmit={handleAddComment} className="flex w-full items-center space-x-2">
                         <Input 
                             id="comment" 
                             placeholder="Write a comment..." 
