@@ -1,15 +1,21 @@
+
 import { createClient } from '@/lib/supabase/server';
 import type { User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
 import { UsersClient } from './client';
+import { redirect } from 'next/navigation';
 
 async function UsersData() {
     const supabase = createClient();
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUser!.id).single();
+    if (!currentUser) {
+        return redirect('/login');
+    }
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUser.id).single();
 
     const { data: users, error } = await supabase
         .from('profiles')
@@ -33,7 +39,7 @@ async function UsersData() {
 
     return <UsersClient 
         users={users as User[]} 
-        currentUserId={currentUser!.id}
+        currentUserId={currentUser.id}
         currentUserRole={profile?.role as User['role']}
     />;
 }

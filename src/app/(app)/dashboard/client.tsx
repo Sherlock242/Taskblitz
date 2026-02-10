@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useTransition, useMemo } from 'react';
+import React, { useTransition } from 'react';
 import Link from 'next/link';
 import type { Task, User, Template } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +45,14 @@ export type TaskWithRelations = Task & {
   reviewer: Pick<User, 'name' | 'avatar_url'> | null;
 };
 
-export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: TaskWithRelations[], userRole: User['role'], currentUserId: string }) {
+interface DashboardClientProps {
+  myWorkflows: any[];
+  otherWorkflows: any[];
+  userRole: User['role'];
+  currentUserId: string;
+}
+
+export function DashboardClient({ myWorkflows, otherWorkflows, userRole, currentUserId }: DashboardClientProps) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -81,103 +89,6 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
             return [];
     }
   }
-
-  const { myWorkflows, otherWorkflows } = useMemo(() => {
-    const groupWorkflows = (tasksToGroup: TaskWithRelations[]) => {
-        const groups: Record<string, { 
-            id: string; 
-            name: string; 
-            description: string; 
-            tasks: TaskWithRelations[]; 
-            assigner: Pick<User, 'name' | 'avatar_url'> | null;
-            assignee: Pick<User, 'name' | 'avatar_url'> | null;
-            reviewer: Pick<User, 'name' | 'avatar_url'> | null;
-            lastActivity: Date;
-        }> = {};
-
-        const tasksByWorkflow: Record<string, TaskWithRelations[]> = {};
-        tasksToGroup.forEach(task => {
-            if (!task.workflow_instance_id) return;
-            if (!tasksByWorkflow[task.workflow_instance_id]) {
-                tasksByWorkflow[task.workflow_instance_id] = [];
-            }
-            tasksByWorkflow[task.workflow_instance_id].push(task);
-        });
-
-        for (const workflowId in tasksByWorkflow) {
-            const workflowTasks = tasksByWorkflow[workflowId];
-            workflowTasks.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-            const firstTask = workflowTasks[0];
-            if (!firstTask) continue;
-            
-            const lastActivityDate = workflowTasks.reduce((latest, task) => {
-                const taskDate = new Date(task.updated_at || task.created_at);
-                return taskDate > latest ? taskDate : latest;
-            }, new Date(0));
-
-            const templateName = firstTask.templates?.name || 'General Tasks';
-            const templateDescription = firstTask.templates?.description || 'Tasks not associated with a template.';
-            groups[workflowId] = {
-                id: workflowId,
-                name: templateName,
-                description: templateDescription,
-                tasks: workflowTasks,
-                assigner: firstTask.assigner,
-                assignee: firstTask.primary_assignee,
-                reviewer: firstTask.reviewer,
-                lastActivity: lastActivityDate,
-            };
-        }
-        
-        const sortedGroups = Object.values(groups).sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
-        return sortedGroups;
-    };
-    
-    if (userRole === 'Admin') {
-        const myWorkflowIds = new Set<string>();
-        tasks.forEach(task => {
-            if (!task.workflow_instance_id) return;
-            if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
-                myWorkflowIds.add(task.workflow_instance_id);
-            }
-        });
-
-        const myTasks: TaskWithRelations[] = [];
-        const otherTasks: TaskWithRelations[] = [];
-
-        tasks.forEach(task => {
-            if (task.workflow_instance_id && myWorkflowIds.has(task.workflow_instance_id)) {
-                myTasks.push(task);
-            } else {
-                otherTasks.push(task);
-            }
-        });
-        return { myWorkflows: groupWorkflows(myTasks), otherWorkflows: groupWorkflows(otherTasks) };
-
-    } else {
-        const allWorkflowGroups = groupWorkflows(tasks);
-        
-        const myWorkflows = allWorkflowGroups.map(workflow => {
-            const tasksForDisplay = workflow.tasks.filter(task => {
-                if (task.status === 'Pending') return false;
-                if (task.primary_assignee_id === currentUserId) return true;
-                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved'].includes(task.status)) return true;
-                return false;
-            });
-
-            if (tasksForDisplay.length === 0) {
-                return null;
-            }
-
-            return {
-                ...workflow,
-                displayTasks: tasksForDisplay,
-            };
-        }).filter((w): w is NonNullable<typeof w> => w !== null);
-
-        return { myWorkflows, otherWorkflows: [] };
-    }
-  }, [tasks, userRole, currentUserId]);
   
   const PageHeader = ({ title, description }: { title: string, description: string }) => (
     <div className="flex flex-col gap-2">
@@ -186,7 +97,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     </div>
   );
   
-  const WorkflowGroupList = ({ workflows, isReadOnly, currentUserId }: { workflows: any[], isReadOnly: boolean, currentUserId: string }) => {
+  const WorkflowGroupList = ({ workflows, isReadOnly }: { workflows: any[], isReadOnly: boolean }) => {
     if (workflows.length === 0) {
       return (
         <Card>
@@ -412,7 +323,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
                                           <TableCell className="text-right">
                                               <div className="flex items-center justify-end">
                                                   <CommentsSheet task={task} userRole={userRole} currentUserId={currentUserId} />
-                                                  {isAdmin && (
+                                                  {userRole === 'Admin' && (
                                                       <>
                                                           <EditTaskDialog task={task} />
                                                           <DeleteTaskDialog taskId={task.id} taskName={task.name} />
@@ -432,7 +343,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
     );
   }
 
-  if (tasks.length === 0) {
+  if (myWorkflows.length === 0 && otherWorkflows.length === 0) {
     return (
         <Card>
             <CardHeader>
@@ -442,7 +353,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
             <CardContent>
                 <div className="text-center py-10 border-2 border-dashed rounded-lg">
                     <h3 className="text-lg font-semibold">No Tasks Yet</h3>
-                    <p className="text-muted-foreground mt-2">You have no assigned tasks.</p>
+                    <p className="text-muted-foreground mt-2">You have no active workflows.</p>
                     {userRole === 'Admin' && (
                       <Button asChild className="mt-4">
                           <Link href="/assign">Assign Tasks</Link>
@@ -459,7 +370,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
       <div>
         <PageHeader title="My Tasks" description="An overview of tasks assigned to you or awaiting your review." />
         <div className="mt-4">
-          <WorkflowGroupList workflows={myWorkflows} isReadOnly={false} currentUserId={currentUserId} />
+          <WorkflowGroupList workflows={myWorkflows} isReadOnly={false} />
         </div>
       </div>
       
@@ -467,7 +378,7 @@ export function DashboardClient({ tasks, userRole, currentUserId }: { tasks: Tas
         <div>
           <PageHeader title="Admin Overview" description="A read-only overview of all other active workflows." />
           <div className="mt-4">
-            <WorkflowGroupList workflows={otherWorkflows} isReadOnly={true} currentUserId={currentUserId} />
+            <WorkflowGroupList workflows={otherWorkflows} isReadOnly={true} />
           </div>
         </div>
       )}

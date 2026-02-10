@@ -5,16 +5,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
-import type { User, Task } from '@/lib/types';
+import type { User, Task, Template } from '@/lib/types';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 async function DashboardData() {
   const supabase = createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    // This should be handled by layout, but as a safeguard
     return redirect('/login');
   }
 
@@ -47,9 +45,7 @@ async function DashboardData() {
         allTasks = data;
     }
     tasksError = error;
-
   } else {
-    // 1. Get all workflow IDs the user is part of
     const { data: userTasks, error: userTasksError } = await supabase
         .from('tasks')
         .select('workflow_instance_id')
@@ -62,8 +58,6 @@ async function DashboardData() {
 
     if (userTasks && userTasks.length > 0) {
         const workflowIds = [...new Set(userTasks.map(t => t.workflow_instance_id))];
-        
-        // 2. Use admin client to fetch ALL raw tasks for those workflows
         const { data: workflowRawTasks, error: workflowTasksError } = await supabaseAdmin
             .from('tasks')
             .select('*')
@@ -72,7 +66,6 @@ async function DashboardData() {
         tasksError = workflowTasksError;
 
         if (workflowRawTasks) {
-            // 3. Manually fetch all relations needed
             const userIds = new Set<string>();
             const templateIds = new Set<string>();
             workflowRawTasks.forEach(task => {
@@ -83,18 +76,12 @@ async function DashboardData() {
                 if (task.template_id) templateIds.add(task.template_id);
             });
 
-            const { data: profilesData, error: profilesError } = await supabaseAdmin.from('profiles').select('id, name, avatar_url').in('id', Array.from(userIds));
-            const { data: templatesData, error: templatesError } = await supabaseAdmin.from('templates').select('id, name, description').in('id', Array.from(templateIds));
-
-            if (profilesError || templatesError) {
-                console.error('Error fetching relations', { profilesError, templatesError });
-                return <p className="text-destructive text-center">Could not load task relations.</p>;
-            }
+            const { data: profilesData } = await supabaseAdmin.from('profiles').select('id, name, avatar_url').in('id', Array.from(userIds));
+            const { data: templatesData } = await supabaseAdmin.from('templates').select('id, name, description').in('id', Array.from(templateIds));
 
             const profileMap = new Map(profilesData?.map(p => [p.id, p]));
             const templateMap = new Map(templatesData?.map(t => [t.id, t]));
             
-            // 4. Join data manually
             allTasks = workflowRawTasks.map(task => ({
                 ...task,
                 profiles: profileMap.get(task.user_id) || null,
@@ -112,22 +99,96 @@ async function DashboardData() {
     return <p className="text-destructive text-center">Could not load tasks.</p>;
   }
   
-  // Merge and de-duplicate tasks that might be fetched twice (e.g., if user is both assignee and reviewer)
   const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
-
-  // Sort tasks
   uniqueTasks.sort((a, b) => {
     const dateA = new Date(a.created_at).getTime();
     const dateB = new Date(b.created_at).getTime();
-    if (dateA !== dateB) {
-      return dateB - dateA;
-    }
+    if (dateA !== dateB) return dateB - dateA;
     return (a.position ?? 0) - (b.position ?? 0);
   });
 
-  return <DashboardClient tasks={uniqueTasks as unknown as TaskWithRelations[]} userRole={profile.role as User['role']} currentUserId={user.id} />;
-}
+  const groupWorkflows = (tasksToGroup: TaskWithRelations[]) => {
+      const groups: Record<string, any> = {};
+      const tasksByWorkflow: Record<string, TaskWithRelations[]> = {};
 
+      tasksToGroup.forEach(task => {
+          if (!task.workflow_instance_id) return;
+          if (!tasksByWorkflow[task.workflow_instance_id]) {
+              tasksByWorkflow[task.workflow_instance_id] = [];
+          }
+          tasksByWorkflow[task.workflow_instance_id].push(task);
+      });
+
+      for (const workflowId in tasksByWorkflow) {
+          const workflowTasks = tasksByWorkflow[workflowId];
+          workflowTasks.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+          const firstTask = workflowTasks[0];
+          if (!firstTask) continue;
+          
+          const lastActivityDate = workflowTasks.reduce((latest, task) => {
+              const taskDate = new Date(task.updated_at || task.created_at);
+              return taskDate > latest ? taskDate : latest;
+          }, new Date(0));
+
+          groups[workflowId] = {
+              id: workflowId,
+              name: firstTask.templates?.name || 'General Tasks',
+              description: firstTask.templates?.description || '',
+              tasks: workflowTasks,
+              assigner: firstTask.assigner,
+              assignee: firstTask.primary_assignee,
+              reviewer: firstTask.reviewer,
+              lastActivity: lastActivityDate,
+          };
+      }
+      return Object.values(groups).sort((a, b) => (b as any).lastActivity.getTime() - (a as any).lastActivity.getTime());
+  };
+
+  let myWorkflows: any[] = [];
+  let otherWorkflows: any[] = [];
+
+  if (profile.role === 'Admin') {
+      const myWorkflowIds = new Set<string>();
+      uniqueTasks.forEach(task => {
+          if (!task.workflow_instance_id) return;
+          if (task.primary_assignee_id === user.id || (task.reviewer_id === user.id && task.status === 'Submitted for Review')) {
+              myWorkflowIds.add(task.workflow_instance_id);
+          }
+      });
+      const myTasks: TaskWithRelations[] = [];
+      const otherTasks: TaskWithRelations[] = [];
+      uniqueTasks.forEach(task => {
+          if (task.workflow_instance_id && myWorkflowIds.has(task.workflow_instance_id)) {
+              myTasks.push(task);
+          } else {
+              otherTasks.push(task);
+          }
+      });
+      myWorkflows = groupWorkflows(myTasks as TaskWithRelations[]);
+      otherWorkflows = groupWorkflows(otherTasks as TaskWithRelations[]);
+  } else {
+      const allWorkflowGroups = groupWorkflows(uniqueTasks as TaskWithRelations[]);
+      myWorkflows = allWorkflowGroups.map(workflow => {
+          const tasksForDisplay = workflow.tasks.filter((task: TaskWithRelations) => {
+              if (task.status === 'Pending') return false;
+              if (task.primary_assignee_id === user.id) return true;
+              if (task.reviewer_id === user.id && ['Submitted for Review', 'Changes Requested', 'Approved'].includes(task.status)) return true;
+              return false;
+          });
+          if (tasksForDisplay.length === 0) return null;
+          return { ...workflow, displayTasks: tasksForDisplay };
+      }).filter(w => w !== null);
+  }
+
+  return (
+    <DashboardClient 
+      myWorkflows={myWorkflows} 
+      otherWorkflows={otherWorkflows} 
+      userRole={profile.role as User['role']} 
+      currentUserId={user.id} 
+    />
+  );
+}
 
 export default function DashboardPage() {
   return (
@@ -153,5 +214,3 @@ function DashboardSkeleton() {
     </Card>
   )
 }
-
-    
