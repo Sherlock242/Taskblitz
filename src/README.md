@@ -1,6 +1,6 @@
 # Database Setup (SQL)
 
-Copy and run this script in your Supabase SQL Editor to initialize the database for Task Blitz.
+Copy and run this entire script in your Supabase SQL Editor to initialize the database for Task Blitz. This script sets up the user profiles (linked to Auth), task templates, active tasks, audit history, and collaboration comments.
 
 ```sql
 -- DANGER: This script deletes existing tables before recreating them.
@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 -- 1. CREATE TABLES
 
 -- Profiles table (linked to auth.users)
+-- This handles user identity, roles, and avatar metadata.
 CREATE TABLE public.profiles (
     id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT,
@@ -23,6 +24,7 @@ CREATE TABLE public.profiles (
 );
 
 -- Templates table
+-- Stores reusable task sequences in JSONB format.
 CREATE TABLE public.templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -32,6 +34,7 @@ CREATE TABLE public.templates (
 );
 
 -- Tasks table
+-- Individual instances of work. Linked by workflow_instance_id.
 CREATE TABLE public.tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_instance_id UUID NOT NULL,
@@ -49,7 +52,8 @@ CREATE TABLE public.tasks (
     position INTEGER
 );
 
--- Task History table (for Audit Trails)
+-- Task History table (Audit Trails)
+-- Tracks every status change for every task.
 CREATE TABLE public.task_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -60,6 +64,7 @@ CREATE TABLE public.task_history (
 );
 
 -- Comments table
+-- For task-level collaboration.
 CREATE TABLE public.comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -68,8 +73,9 @@ CREATE TABLE public.comments (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. SET UP AUTH TRIGGERS
+-- 2. AUTHENTICATION TRIGGERS
 
+-- Function to automatically create a profile when a new user signs up
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -85,6 +91,7 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- Trigger the profile creation function
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
@@ -111,7 +118,8 @@ CREATE POLICY "Admins manage templates" ON public.templates FOR ALL USING (
 CREATE POLICY "Users view involved tasks" ON public.tasks FOR SELECT USING (
   (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' OR
   primary_assignee_id = auth.uid() OR 
-  reviewer_id = auth.uid()
+  reviewer_id = auth.uid() OR
+  user_id = auth.uid()
 );
 CREATE POLICY "Authenticated can insert tasks" ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Involved can update tasks" ON public.tasks FOR UPDATE USING (
@@ -124,18 +132,21 @@ CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (
 );
 
 -- Comments & History Policies
-CREATE POLICY "Viewable by task access" ON public.comments FOR SELECT USING (true);
+CREATE POLICY "Comments viewable by everyone" ON public.comments FOR SELECT USING (true);
 CREATE POLICY "Users manage own comments" ON public.comments FOR ALL USING (user_id = auth.uid());
 CREATE POLICY "Viewable history" ON public.task_history FOR SELECT USING (true);
 CREATE POLICY "System inserts history" ON public.task_history FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- 4. UTILITIES
 
+-- Function for users to delete their own account (Self-service)
 create or replace function public.delete_own_user_account()
 returns void language sql security definer as $$
   delete from auth.users where id = auth.uid();
 $$;
 
--- 5. STORAGE SETUP
--- Run these via the Dashboard or ensure 'avatars' bucket exists and is public.
+-- 5. STORAGE BUCKET CONFIGURATION
+-- Ensure a public bucket named 'avatars' is created in the Supabase Dashboard.
+-- The RLS policies for storage should allow 'authenticated' users to upload to their own folder:
+-- Path: avatars/{auth.uid()}/...
 ```
