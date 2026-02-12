@@ -1,98 +1,56 @@
 # Task Blitz
 
-Task Blitz is a lightweight, modern project management tool designed for teams who need to rapidly assign and track tasks. It allows administrators to create reusable task templates and assign them to team members in a single action, streamlining workflow and ensuring consistency.
+Task Blitz is a lightweight, modern project management tool designed for teams who need to rapidly assign and track task workflows. It allows administrators to create reusable task templates and instantiate them as active workflows in a single action, streamlining repetitive processes and ensuring team consistency.
 
-## Technology Stack
+**Live Site**: [https://taskblitsz.netlify.app/](https://taskblitsz.netlify.app/)
 
-This project is built on a modern, robust, and scalable technology stack:
+## Key Features
 
-- **Framework**: [Next.js](https://nextjs.org/) (v15 with App Router)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **UI Components**: [ShadCN UI](https://ui.shadcn.com/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Database**: [Supabase](https://supabase.com/) (PostgreSQL)
-- **Authentication**: [Supabase Auth](https://supabase.com/)
-- **AI Integration**: [Genkit](https://firebase.google.com/docs/genkit) (for AI features)
+- **Workflow Templating**: Create complex task lists with predefined roles, assignees, and relative deadlines.
+- **Rapid Assignment**: Launch entire multi-stage workflows from a template with one click.
+- **Role-Based Access Control**: Secure separation between Admins (managers) and Members (task executors).
+- **Dynamic Status Tracking**: A state-machine driven dashboard that manages task transitions (Assigned -> In Progress -> Submitted -> Approved).
+- **Audit & Activity**: Real-time comments and automated status change history for every task.
+- **Review System**: Built-in "Submit for Review" cycle where designated reviewers can approve or request changes.
 
-## Prerequisites
+## Specifications
 
-Before you begin, ensure you have the following installed on your local machine:
+### Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth (Email/Password)
+- **UI Components**: ShadCN UI (Radix UI)
+- **Styling**: Tailwind CSS
+- **AI Readiness**: Integrated with Genkit for future intelligent task generation.
 
-- [Node.js](https://nodejs.org/) (v18 or later)
-- [npm](https://www.npmjs.com/)
-- A [Supabase](https://supabase.com/) account.
-- **Docker**: Required for Supabase CLI operations like `db dump`, `db pull`, or `db push`.
+### Database Architecture
+- **Profiles**: Extended user data synced with Supabase Auth.
+- **Templates**: Reusable JSONB definitions of task sequences.
+- **Tasks**: Individual instances of work with unique `workflow_instance_id` to group related tasks.
+- **Task History**: Automated logging of every status transition for compliance and tracking.
+- **Comments**: Collaborative discussion thread per task.
 
 ## Setup Instructions
 
 ### 1. Install Dependencies
-
 ```bash
 npm install
 ```
 
-### 2. Set Up Supabase
-
-1.  Create a project at [Supabase](https://supabase.com/).
-2.  In **Project Settings > API**, get your **Project URL**, `anon` key, and `service_role` key.
-
-### 3. Configure Environment Variables
-
+### 2. Configure Environment Variables
 Create a `.env.local` file:
-
 ```env
 NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
-SUPABASE_ACCESS_TOKEN=YOUR_CLI_ACCESS_TOKEN
 ```
 
-### 4. Supabase CLI Usage
-
-1.  **Initialize**: `npx supabase init`
-2.  **Link project**: `npx supabase link --project-ref izcuehamxzfcdietlmig`
-3.  **Database Operations**: `npx supabase db pull` (Requires Docker)
-
-## Environment Limitations
-
-Note that some Supabase CLI commands (like `db dump` or `db pull`) require **Docker** to be running on the host machine. 
-- **Cloud IDEs/Browser Terminals**: These environments typically do not support Docker. In these cases, manage your database schema directly via the [Supabase Dashboard SQL Editor](https://supabase.com/dashboard).
-- **Local Development**: To use the full power of the CLI, clone the repository to your local machine and ensure **Docker** is installed and running.
-
-## Local Linux Docker Installation (Ubuntu/Debian)
-
-If you are setting up your project on a local Linux machine, use these commands to install Docker:
-
-```bash
-# 1. Update your package index
-sudo apt-get update
-
-# 2. Install prerequisites
-sudo apt-get install ca-certificates curl gnupg
-
-# 3. Add Docker’s official GPG key
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-# 4. Set up the repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# 5. Install Docker Engine
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-# 6. Verify installation
-sudo docker run hello-world
-```
+### 3. Database Setup
+Execute the SQL script found in `src/README.md` within your Supabase SQL Editor.
 
 ## How to Run
-
 ```bash
 npm run dev
 ```
-
-The application will be available at [http://localhost:9002](http://localhost:9002).
+The application will be available at `http://localhost:9002` for local development.
