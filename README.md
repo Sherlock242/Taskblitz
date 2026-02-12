@@ -53,4 +53,4 @@ Execute the SQL script found in `src/README.md` within your Supabase SQL Editor.
 ```bash
 npm run dev
 ```
-The application will be available at `http://localhost:9002` for local development.
+The application will be available at `https://taskblitsz.netlify.app/` for local development.
