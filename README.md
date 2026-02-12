@@ -25,7 +25,7 @@ Task Blitz is a lightweight, modern project management tool designed for teams w
 - **AI Readiness**: Integrated with Genkit for future intelligent task generation.
 
 ### Database Architecture
-- **Profiles**: Extended user data synced with Supabase Auth.
+- **Profiles**: Extended user data synced with Supabase Auth via triggers.
 - **Templates**: Reusable JSONB definitions of task sequences.
 - **Tasks**: Individual instances of work with unique `workflow_instance_id` to group related tasks.
 - **Task History**: Automated logging of every status transition for compliance and tracking.

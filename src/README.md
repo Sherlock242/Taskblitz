@@ -41,14 +41,14 @@ CREATE TABLE public.tasks (
     name TEXT NOT NULL,
     description TEXT,
     deadline TIMESTAMPTZ,
-    template_id UUID REFERENCES templates(id) ON DELETE SET NULL,
-    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- Workflow Owner
+    template_id UUID REFERENCES public.templates(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE, -- Workflow Owner
     assigned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     primary_assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     reviewer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'Pending',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     position INTEGER
 );
 
@@ -56,8 +56,8 @@ CREATE TABLE public.tasks (
 -- Tracks every status change for every task.
 CREATE TABLE public.task_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     previous_status TEXT,
     new_status TEXT NOT NULL,
     changed_at TIMESTAMPTZ DEFAULT NOW()
@@ -67,13 +67,13 @@ CREATE TABLE public.task_history (
 -- For task-level collaboration.
 CREATE TABLE public.comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. AUTHENTICATION TRIGGERS
+-- 2. AUTHENTICATION & PROFILE TRIGGERS
 
 -- Function to automatically create a profile when a new user signs up
 create or replace function public.handle_new_user()
@@ -92,6 +92,7 @@ end;
 $$ language plpgsql security definer;
 
 -- Trigger the profile creation function
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
@@ -111,24 +112,24 @@ CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING
 -- Templates Policies
 CREATE POLICY "Templates viewable by authenticated" ON public.templates FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Admins manage templates" ON public.templates FOR ALL USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin'
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
 );
 
 -- Tasks Policies
 CREATE POLICY "Users view involved tasks" ON public.tasks FOR SELECT USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' OR
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
   primary_assignee_id = auth.uid() OR 
   reviewer_id = auth.uid() OR
   user_id = auth.uid()
 );
 CREATE POLICY "Authenticated can insert tasks" ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Involved can update tasks" ON public.tasks FOR UPDATE USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin' OR
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
   primary_assignee_id = auth.uid() OR
   reviewer_id = auth.uid()
 );
 CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'Admin'
+  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
 );
 
 -- Comments & History Policies
@@ -142,11 +143,16 @@ CREATE POLICY "System inserts history" ON public.task_history FOR INSERT WITH CH
 -- Function for users to delete their own account (Self-service)
 create or replace function public.delete_own_user_account()
 returns void language sql security definer as $$
+begin
   delete from auth.users where id = auth.uid();
+end;
 $$;
 
--- 5. STORAGE BUCKET CONFIGURATION
--- Ensure a public bucket named 'avatars' is created in the Supabase Dashboard.
--- The RLS policies for storage should allow 'authenticated' users to upload to their own folder:
--- Path: avatars/{auth.uid()}/...
+-- 5. STORAGE BUCKET CONFIGURATION (Informational)
+-- In the Supabase Dashboard -> Storage:
+-- 1. Create a public bucket named 'avatars'.
+-- 2. Add the following RLS policy for the 'avatars' bucket:
+--    - Allowed to: SELECT, INSERT, UPDATE
+--    - For users: authenticated
+--    - Path: (select (auth.uid() = (storage.foldername(name))[1]))
 ```
