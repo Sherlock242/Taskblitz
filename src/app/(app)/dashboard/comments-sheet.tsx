@@ -55,33 +55,39 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
     }, [open, fetchActivity]);
 
     useEffect(() => {
-        if (!open) return;
+        if (!open || !task.id) return;
         
-        const commentChannel = supabase.channel(`comments-for-${task.id}`)
-            .on<Comment>(
+        const channel = supabase.channel(`activity-for-${task.id}`)
+            .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'comments', filter: `task_id=eq.${task.id}` },
                 (payload) => {
-                    fetchActivity(); // Refetch all activity for simplicity
+                    console.log('Comment change received!', payload)
+                    fetchActivity();
                 }
             )
-            .subscribe();
-
-        const historyChannel = supabase.channel(`history-for-${task.id}`)
-             .on<TaskHistory>(
+            .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'task_history', filter: `task_id=eq.${task.id}` },
                 (payload) => {
+                    console.log('History change received!', payload)
                    fetchActivity();
                 }
             )
-            .subscribe();
+            .subscribe((status, err) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log(`Subscribed to activity for task ${task.id}`);
+                }
+                if (err) {
+                    console.error('Subscription error:', err);
+                    toast({ title: 'Connection Error', description: 'Could not connect to real-time activity.', variant: 'destructive' });
+                }
+            });
 
         return () => {
-            supabase.removeChannel(commentChannel);
-            supabase.removeChannel(historyChannel);
+            supabase.removeChannel(channel);
         };
-    }, [open, task.id, supabase, fetchActivity]);
+    }, [open, task.id, supabase, fetchActivity, toast]);
 
     useEffect(() => {
         if (scrollAreaRef.current) {
@@ -100,7 +106,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 setNewComment("");
-                // Real-time listener will handle the update, no manual refetch needed.
+                // Real-time listener will handle the update
             }
         });
     };
@@ -112,10 +118,20 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted", description: result.data?.message });
-                 // Real-time listener will handle the update, no manual refetch needed.
+                 // Real-time listener will handle the update
             }
         });
     };
+
+    const handlePointerDownOutside = (e: any) => {
+        const target = e.target as HTMLElement;
+        // If the click is on an element that is being removed (like a delete button),
+        // we prevent the dialog from closing.
+        if (!document.body.contains(target)) {
+            e.preventDefault();
+        }
+    }
+
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -125,7 +141,11 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                     <span className="sr-only">Activity</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+            <DialogContent 
+                className="sm:max-w-lg max-h-[80vh] flex flex-col"
+                onPointerDownOutside={handlePointerDownOutside}
+                onInteractOutside={handlePointerDownOutside}
+            >
                 <DialogHeader>
                     <DialogTitle>Activity for "{task.name}"</DialogTitle>
                     <DialogDescription>
@@ -160,10 +180,11 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7"
+                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100"
                                                     onClick={() => handleDeleteComment(item.id)}
                                                     disabled={isDeleting}
                                                     aria-label="Delete comment"
+                                                    onPointerDown={(e) => e.stopPropagation()} // Prevent dialog from closing
                                                 >
                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                 </Button>

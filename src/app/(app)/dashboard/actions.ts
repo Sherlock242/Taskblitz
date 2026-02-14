@@ -1,4 +1,3 @@
-
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
@@ -235,11 +234,15 @@ export async function getAuditTrail(taskId: string) {
       return { error: { message: 'You must be logged in to view activity.' } };
   }
   
-  const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+  );
 
   const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
-    .select('*, profiles:user_id(id, name, avatar_url)')
+    .select('*, profiles(id, name, avatar_url)')
     .eq('task_id', taskId);
     
   if (commentsError) {
@@ -249,7 +252,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: history, error: historyError } = await supabaseAdmin
     .from('task_history')
-    .select('*, profiles:user_id(id, name, avatar_url)')
+    .select('*, profiles(id, name, avatar_url)')
     .eq('task_id', taskId);
 
   if (historyError) {

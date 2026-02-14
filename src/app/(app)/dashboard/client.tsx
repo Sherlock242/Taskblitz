@@ -166,7 +166,7 @@ export function DashboardClient({ userRole, currentUserId }: DashboardClientProp
         if (userRole !== 'Admin' && userTasks.length > 0) {
             const workflowIds = [...new Set(userTasks.map(t => t.workflow_instance_id))];
             query = query.in('workflow_instance_id', workflowIds);
-        } else if (userRole !== 'Admin') {
+        } else if (userRole !== 'Admin' && userTasks.length === 0) {
             // Non-admin with no tasks, fetch nothing
             processAndSetWorkflows([]);
             setIsLoading(false);
@@ -190,10 +190,7 @@ export function DashboardClient({ userRole, currentUserId }: DashboardClientProp
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
         async (payload) => {
             console.log('Real-time task update received:', payload);
-            
-            // Refetch all data to ensure consistency. A more granular update would be more complex
-            // but this ensures the grouping and sorting logic is always correct.
-            await fetchInitialData();
+            fetchInitialData();
         }
       )
       .subscribe((status, err) => {
