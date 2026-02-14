@@ -151,7 +151,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     }
   }
 
-  revalidatePath('/dashboard');
+  // revalidatePath('/dashboard'); // This was causing the dialog to close
   return { error: null };
 }
 
@@ -303,7 +303,7 @@ export async function addComment(taskId: string, content: string) {
   if (error) {
     return { error: { message: `Failed to add comment: ${error.message}` } };
   }
-  revalidatePath(`/dashboard`);
+  // revalidatePath(`/dashboard`); // This was causing the dialog to close
   return { data: { message: 'Comment added.' } };
 }
 
@@ -339,6 +339,6 @@ export async function deleteComment(commentId: string) {
   if (error) {
     return { error: { message: `Failed to delete comment: ${error.message}` } };
   }
-  revalidatePath(`/dashboard`);
+  // revalidatePath(`/dashboard`); // This was causing the dialog to close
   return { data: { message: 'Comment deleted.' } };
 }
