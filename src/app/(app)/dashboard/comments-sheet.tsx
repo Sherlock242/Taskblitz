@@ -55,40 +55,41 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         }
     }, [open, fetchActivity]);
 
-    // Real-time subscription to refresh activity from OTHER users
     useEffect(() => {
         if (!open || !task.id) return;
 
-        const handleRealtimeUpdate = (payload: any) => {
-             // A simple refetch is the most reliable way to handle any change from another user.
-            // We check the user_id to avoid refetching for our own actions, which are handled optimistically.
-            const recordUserId = payload.new?.user_id || payload.old?.user_id;
-            if (recordUserId && recordUserId === currentUserId) {
-                return;
-            }
-            fetchActivity(false);
+        const handleRealtimeUpdate = () => {
+            fetchActivity(false); // Refetch data on any change
         };
 
         const commentsChannel = supabase
             .channel(`comments-for-task-${task.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `task_id=eq.${task.id}` }, handleRealtimeUpdate)
-            .subscribe();
+            .subscribe((status, err) => {
+                if (err) {
+                    console.error("Real-time comments subscription error:", err);
+                    toast({ title: "Connection Error", description: "Could not sync comments in real-time.", variant: "destructive" });
+                }
+            });
             
         const historyChannel = supabase
             .channel(`history-for-task-${task.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_history', filter: `task_id=eq.${task.id}` }, handleRealtimeUpdate)
-            .subscribe();
+             .subscribe((status, err) => {
+                if (err) {
+                    console.error("Real-time history subscription error:", err);
+                }
+            });
 
         return () => {
             supabase.removeChannel(commentsChannel);
             supabase.removeChannel(historyChannel);
         };
-    }, [open, task.id, supabase, fetchActivity, currentUserId]);
+    }, [open, task.id, supabase, fetchActivity]);
 
     useEffect(() => {
         if (scrollAreaRef.current) {
-            // A slight delay ensures the new item is rendered before we scroll.
-             setTimeout(() => {
+            setTimeout(() => {
                 scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
             }, 100);
         }
@@ -101,35 +102,25 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         if (!content) return;
 
         startPostingTransition(async () => {
-            const originalComment = newComment;
-            setNewComment(""); // Clear input immediately for responsive feel
-
+            setNewComment("");
             const result = await addComment(task.id, content);
-            
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
-                setNewComment(originalComment); // Restore input on failure
-            } else if (result.data) {
-                // Instant UI update for the current user
-                setActivity(prev => [...prev, result.data]);
+                setNewComment(content);
             }
+            // No optimistic update; real-time will handle the refresh
         });
     };
 
     const handleDeleteComment = async (commentId: string) => {
         startDeletingTransition(async () => {
-            // Optimistically remove the comment from the UI
-            const originalActivity = [...activity];
-            setActivity(prev => prev.filter(item => item.id !== commentId));
-
             const result = await deleteComment(commentId);
             if (result.error) {
-                // If the delete fails, revert the change and show an error
-                setActivity(originalActivity);
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted" });
             }
+             // No optimistic update; real-time will handle the refresh
         });
     };
 
@@ -190,7 +181,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
                                                     onClick={() => handleDeleteComment(item.id)}
                                                     disabled={isDeleting}
                                                     aria-label="Delete comment"
-                                                    onPointerDown={(e) => e.stopPropagation()} // Prevent dialog from closing
+                                                    onPointerDown={(e) => e.stopPropagation()}
                                                 >
                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                 </Button>
