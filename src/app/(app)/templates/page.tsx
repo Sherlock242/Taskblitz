@@ -1,15 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Template, User } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { ListChecks, Edit } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardFooter, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Suspense } from 'react';
 import { AddTemplateDialog } from './dialog';
 import { redirect } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { DeleteTemplateDialog } from './delete-template-dialog';
+import { TemplatesClient } from './client';
 
-async function TemplatesList({ users }: { users: Pick<User, 'id' | 'name'>[] }) {
+async function TemplatesData({ users }: { users: Pick<User, 'id' | 'name'>[] }) {
     const supabase = createClient();
     const { data: templates, error } = await supabase
         .from('templates')
@@ -21,68 +19,7 @@ async function TemplatesList({ users }: { users: Pick<User, 'id' | 'name'>[] }) 
         return <p className="text-destructive">Could not load templates.</p>
     }
 
-    if (templates.length === 0) {
-        return (
-            <div className="text-center py-10 border-2 border-dashed rounded-lg col-span-full">
-                <h3 className="text-lg font-semibold">No Templates Yet</h3>
-                <p className="text-muted-foreground mt-2">Create your first template to get started.</p>
-            </div>
-        )
-    }
-
-    const userMap = new Map(users.map(u => [u.id, u.name]));
-
-    return (
-        <>
-            {(templates as Template[]).map(template => (
-                <Card key={template.id}>
-                    <CardHeader>
-                        <CardTitle className="font-headline">{template.name}</CardTitle>
-                        <CardDescription>{template.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ul className="space-y-2 text-sm text-muted-foreground">
-                            {template.tasks.slice(0, 5).map((task, index) => (
-                                <li key={index} className="flex items-center gap-3">
-                                    <ListChecks className="h-4 w-4 text-primary" />
-                                    <span className="flex-1 truncate">{task.name}</span>
-                                     {task.deadline_days && (
-                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                            {task.deadline_days} days
-                                        </span>
-                                    )}
-                                    {task.role ? (
-                                        <span className="text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-full">
-                                            {task.role} ({userMap.get(task.user_id) || 'Unknown'})
-                                        </span>
-                                    ) : (
-                                        <span className="text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-full">
-                                            {userMap.get(task.user_id) || 'Unknown User'}
-                                        </span>
-                                    )}
-                                </li>
-                            ))}
-                            {template.tasks.length > 5 && (
-                                <li className="text-xs italic">...and {template.tasks.length - 5} more.</li>
-                            )}
-                        </ul>
-                    </CardContent>
-                    <CardFooter className="flex justify-between items-center">
-                        <p className="text-xs text-muted-foreground">{template.tasks.length} tasks</p>
-                        <div className="flex items-center">
-                            <AddTemplateDialog template={template} users={users}>
-                                <Button variant="ghost" size="icon">
-                                    <Edit className="h-4 w-4" />
-                                    <span className="sr-only">Edit Template</span>
-                                </Button>
-                            </AddTemplateDialog>
-                            <DeleteTemplateDialog templateId={template.id} templateName={template.name} />
-                        </div>
-                    </CardFooter>
-                </Card>
-            ))}
-        </>
-    );
+    return <TemplatesClient initialTemplates={templates as Template[]} users={users} />;
 }
 
 function TemplatesSkeleton() {
@@ -124,7 +61,7 @@ export default async function TemplatesPage() {
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Suspense fallback={<TemplatesSkeleton />}>
-                    <TemplatesList users={users} />
+                    <TemplatesData users={users} />
                 </Suspense>
             </div>
         </div>

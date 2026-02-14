@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useTransition } from 'react';
+import React, { useTransition, useState, useEffect } from 'react';
 import type { User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { updateUserRole } from './actions';
 import { DeleteUserDialog } from './delete-user-dialog';
+import { createClient } from '@/lib/supabase/client';
 
 
 interface UsersClientProps {
@@ -19,10 +20,52 @@ interface UsersClientProps {
     currentUserRole: User['role'];
 }
 
-export function UsersClient({ users, currentUserId, currentUserRole }: UsersClientProps) {
+export function UsersClient({ users: initialUsers, currentUserId, currentUserRole }: UsersClientProps) {
+    const [users, setUsers] = useState<User[]>(initialUsers);
     const isMobile = useIsMobile();
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
+    const supabase = createClient();
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('name', { ascending: true });
+            
+            if (error) {
+                toast({
+                    title: 'Error fetching users',
+                    description: error.message,
+                    variant: 'destructive',
+                });
+            } else if (data) {
+                setUsers(data as User[]);
+            }
+        };
+
+        const channel = supabase
+            .channel('realtime-users')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'profiles' },
+                (payload) => {
+                    console.log('Real-time profile update received:', payload);
+                    fetchUsers();
+                }
+            )
+            .subscribe((status, err) => {
+                if (err) {
+                    console.error('User subscription error:', err);
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [supabase, toast]);
+
 
     const handleRoleChange = (userId: string, newRole: User['role']) => {
         startTransition(async () => {

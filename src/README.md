@@ -4,6 +4,7 @@ Copy and run this entire script in your Supabase SQL Editor to initialize the da
 
 ```sql
 -- DANGER: This script deletes existing tables before recreating them.
+-- It is designed to be run on a fresh database.
 DROP TABLE IF EXISTS public.comments CASCADE;
 DROP TABLE IF EXISTS public.task_history CASCADE;
 DROP TABLE IF EXISTS public.tasks CASCADE;
@@ -41,7 +42,7 @@ CREATE TABLE public.tasks (
     template_id UUID REFERENCES public.templates(id) ON DELETE SET NULL,
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE, -- Workflow Owner
     assigned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-    primary_assignee_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    primary_assignee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     reviewer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'Pending',
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -92,13 +93,30 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 3. ROW LEVEL SECURITY (RLS)
+-- 3. ROW LEVEL SECURITY (RLS) - Idempotent script
 
+-- Enable RLS on all relevant tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_history ENABLE ROW LEVEL SECURITY;
+
+-- Clear existing policies to prevent conflicts
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Templates viewable by authenticated" ON public.templates;
+DROP POLICY IF EXISTS "Admins manage templates" ON public.templates;
+DROP POLICY IF EXISTS "Users view involved tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Authenticated can insert tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Involved can update tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Admins delete tasks" ON public.tasks;
+DROP POLICY IF EXISTS "Comments viewable by involved users" ON public.comments;
+DROP POLICY IF EXISTS "Users can insert their own comments" ON public.comments;
+DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
+DROP POLICY IF EXISTS "Users can delete their own comments, and Admins can delete any" ON public.comments;
+DROP POLICY IF EXISTS "History viewable by involved users" ON public.task_history;
+DROP POLICY IF EXISTS "System can insert history" ON public.task_history;
 
 -- Profiles Policies
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
@@ -127,8 +145,7 @@ CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (
   EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
 );
 
--- Comments & History Policies (Corrected)
-DROP POLICY IF EXISTS "Comments viewable by involved users" ON public.comments;
+-- Comments & History Policies
 CREATE POLICY "Comments viewable by involved users" ON public.comments FOR SELECT
 USING (
   EXISTS (
@@ -143,16 +160,9 @@ USING (
   )
 );
 
-DROP POLICY IF EXISTS "Users can insert and manage own comments" ON public.comments;
-DROP POLICY IF EXISTS "Users can insert their own comments" ON public.comments;
 CREATE POLICY "Users can insert their own comments" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
 CREATE POLICY "Users can update their own comments" ON public.comments FOR UPDATE USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users can delete their own comments, and Admins can delete any" ON public.comments;
 CREATE POLICY "Users can delete their own comments, and Admins can delete any" ON public.comments FOR DELETE USING ( (auth.uid() = user_id) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')) );
-
 
 CREATE POLICY "History viewable by involved users" ON public.task_history FOR SELECT
 USING (
@@ -187,5 +197,5 @@ $$;
 
 -- 6. Enable Realtime
 -- This tells Supabase to broadcast changes on these tables.
-alter publication supabase_realtime add table public.comments, public.task_history, public.tasks;
+alter publication supabase_realtime add table public.comments, public.task_history, public.tasks, public.templates, public.profiles;
 ```

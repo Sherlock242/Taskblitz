@@ -105,55 +105,51 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
       return Object.values(groups).sort((a, b) => (b as any).lastActivity.getTime() - (a as any).lastActivity.getTime());
   }, []);
 
+  const fetchAllTasks = useCallback(async () => {
+    const { data: tasks, error: tasksError } = await supabase
+      .from('tasks')
+      .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
+
+    if (tasksError) {
+      toast({
+        title: 'Error refreshing tasks',
+        description: tasksError.message,
+        variant: 'destructive',
+      });
+    } else if (tasks) {
+      setAllTasks(tasks as TaskWithRelations[]);
+    }
+  }, [supabase, toast]);
     
-    useEffect(() => {
-      const channel = supabase
-        .channel('realtime-dashboard')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'tasks' },
-          async (payload) => {
-            console.log('Real-time task update received:', payload);
-            if (payload.eventType === 'INSERT') {
-              const { data, error } = await supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)').eq('id', payload.new.id).single();
-              if (data) {
-                setAllTasks(prevTasks => {
-                  const taskExists = prevTasks.some(t => t.id === data.id);
-                  if (!taskExists) {
-                    return [...prevTasks, data as TaskWithRelations];
-                  }
-                  return prevTasks;
-                });
-              }
-            } else if (payload.eventType === 'UPDATE') {
-              const updatedTask = payload.new as Task;
-              setAllTasks(prevTasks =>
-                prevTasks.map(t => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t))
-              );
-            } else if (payload.eventType === 'DELETE') {
-              const deletedTaskId = payload.old.id;
-              setAllTasks(prevTasks => prevTasks.filter(t => t.id !== deletedTaskId));
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') {
-            console.log('Subscribed to dashboard real-time updates!');
-          }
-          if (err) {
-            console.error('Subscription error:', err);
-            toast({
-              title: 'Connection Error',
-              description: 'Could not connect to real-time updates.',
-              variant: 'destructive',
-            });
-          }
-        });
-  
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }, [supabase, toast]);
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-dashboard')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        (payload) => {
+          console.log('Real-time task update received, refetching all tasks:', payload);
+          fetchAllTasks();
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to dashboard real-time updates!');
+        }
+        if (err) {
+          console.error('Subscription error:', err);
+          toast({
+            title: 'Connection Error',
+            description: 'Could not connect to real-time updates.',
+            variant: 'destructive',
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, toast, fetchAllTasks]);
 
 
     useEffect(() => {
