@@ -112,23 +112,26 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
                 setNewComment(originalComment); // Restore input if error
             } else {
-                // Manually refetch after a successful add to ensure the UI updates immediately for the current user.
-                // The real-time listener will handle updates for other users.
-                fetchActivity(false);
+                // Let the real-time listener handle the UI update for everyone, including the current user.
             }
         });
     };
 
     const handleDeleteComment = async (commentId: string) => {
         startDeletingTransition(async () => {
+            const originalActivity = [...activity];
+            // Optimistic update: remove the comment from the UI immediately.
+            setActivity(prev => prev.filter(item => item.type !== 'comment' || item.id !== commentId));
+            
             const result = await deleteComment(commentId);
+            
             if (result.error) {
+                // If the delete fails, revert the UI and show an error.
+                setActivity(originalActivity);
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted" });
-                 // Manually refetch after a successful delete to ensure the UI updates immediately for the current user.
-                // The real-time listener will handle updates for other users.
-                fetchActivity(false);
+                 // The real-time listener will handle refetching for all users.
             }
         });
     };
