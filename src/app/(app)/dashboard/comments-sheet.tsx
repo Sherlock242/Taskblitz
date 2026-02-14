@@ -115,15 +115,22 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
     };
 
     const handleDeleteComment = async (commentId: string) => {
+        const originalActivity = [...activity];
+        
+        // Optimistically remove the comment from the UI
+        setActivity(prevActivity => prevActivity.filter(item => item.id !== commentId));
+
         startDeletingTransition(async () => {
             const result = await deleteComment(commentId);
             
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
+                // If the delete failed, restore the original activity list
+                setActivity(originalActivity);
             } else {
                 toast({ title: "Comment Deleted" });
+                // The real-time listener will ensure other clients are updated.
             }
-            // The real-time listener will now handle the UI update for ALL users.
         });
     };
 
