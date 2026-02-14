@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
 import { getAuditTrail, addComment, deleteComment } from "./actions"
-import type { Task, AuditTrailItem, User, Comment, TaskHistory } from "@/lib/types"
+import type { Task, AuditTrailItem, User } from "@/lib/types"
 import { MessageSquare, Send, Trash2, ArrowRight } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from "@/components/ui/badge"
@@ -41,8 +41,8 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
         if (result.data) {
             setActivity(result.data);
         } else if (result.error) {
-            setError("Could not load activity.");
-            toast({ title: "Error", description: "Could not load activity.", variant: "destructive" });
+            setError(result.error.message);
+            toast({ title: "Error", description: `Could not load activity: ${result.error.message}`, variant: "destructive" });
         }
         setIsLoading(false);
     }, [task.id, toast]);
@@ -123,11 +123,9 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
         });
     };
 
-    const handlePointerDownOutside = (e: any) => {
+    const handlePointerDownOutside = (e: Event) => {
         const target = e.target as HTMLElement;
-        // If the click is on an element that is being removed (like a delete button),
-        // we prevent the dialog from closing.
-        if (!document.body.contains(target)) {
+        if (target.closest('[data-radix-collection-item]') && !document.body.contains(target)) {
             e.preventDefault();
         }
     }
@@ -144,7 +142,6 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
             <DialogContent 
                 className="sm:max-w-lg max-h-[80vh] flex flex-col"
                 onPointerDownOutside={handlePointerDownOutside}
-                onInteractOutside={handlePointerDownOutside}
             >
                 <DialogHeader>
                     <DialogTitle>Activity for "{task.name}"</DialogTitle>
@@ -228,11 +225,4 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                         />
                         <Button type="submit" size="icon" disabled={isPosting || !newComment.trim()}>
                             <Send className="h-4 w-4" />
-                            <span className="sr-only">Send</span>
-                        </Button>
-                    </form>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
+                            <span className="sr-only

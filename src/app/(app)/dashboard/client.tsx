@@ -48,16 +48,17 @@ export type TaskWithRelations = Task & {
 };
 
 interface DashboardClientProps {
+  initialTasks: TaskWithRelations[];
   userRole: User['role'];
   currentUserId: string;
 }
 
-export function DashboardClient({ userRole, currentUserId }: DashboardClientProps) {
+export function DashboardClient({ initialTasks, userRole, currentUserId }: DashboardClientProps) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [isTransitioning, startTransition] = useTransition();
 
-  const [allTasks, setAllTasks] = useState<TaskWithRelations[]>([]);
+  const [allTasks, setAllTasks] = useState<TaskWithRelations[]>(initialTasks);
   const [myWorkflows, setMyWorkflows] = useState<any[]>([]);
   const [otherWorkflows, setOtherWorkflows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,112 +102,86 @@ export function DashboardClient({ userRole, currentUserId }: DashboardClientProp
       return Object.values(groups).sort((a, b) => (b as any).lastActivity.getTime() - (a as any).lastActivity.getTime());
   }, []);
 
-  const processAndSetWorkflows = useCallback((tasks: TaskWithRelations[]) => {
-    const uniqueTasks = Array.from(new Map(tasks.map(task => [task.id, task])).values());
-    uniqueTasks.sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        if (dateA !== dateB) return dateB - dateA;
-        return (a.position ?? 0) - (b.position ?? 0);
-    });
-    setAllTasks(uniqueTasks);
+    const processAndSetWorkflows = useCallback((tasks: TaskWithRelations[]) => {
+        const uniqueTasks = Array.from(new Map(tasks.map(task => [task.id, task])).values());
+        uniqueTasks.sort((a, b) => {
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            if (dateA !== dateB) return dateB - dateA;
+            return (a.position ?? 0) - (b.position ?? 0);
+        });
+        setAllTasks(uniqueTasks);
 
-    if (userRole === 'Admin') {
-        const myWorkflowIds = new Set<string>();
-        uniqueTasks.forEach(task => {
-            if (!task.workflow_instance_id) return;
-            if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
-                myWorkflowIds.add(task.workflow_instance_id);
-            }
-        });
-        const myTasks: TaskWithRelations[] = [];
-        const otherTasks: TaskWithRelations[] = [];
-        uniqueTasks.forEach(task => {
-            if (task.workflow_instance_id && myWorkflowIds.has(task.workflow_instance_id)) {
-                myTasks.push(task);
-            } else {
-                otherTasks.push(task);
-            }
-        });
-        setMyWorkflows(groupWorkflows(myTasks));
-        setOtherWorkflows(groupWorkflows(otherTasks));
-    } else {
-        const allWorkflowGroups = groupWorkflows(uniqueTasks);
-        const filteredMyWorkflows = allWorkflowGroups.map(workflow => {
-            const tasksForDisplay = workflow.tasks.filter((task: TaskWithRelations) => {
-                if (task.status === 'Pending') return false;
-                if (task.primary_assignee_id === currentUserId) return true;
-                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved'].includes(task.status)) return true;
-                return false;
+        if (userRole === 'Admin') {
+            const myWorkflowIds = new Set<string>();
+            uniqueTasks.forEach(task => {
+                if (!task.workflow_instance_id) return;
+                if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
+                    myWorkflowIds.add(task.workflow_instance_id);
+                }
             });
-            if (tasksForDisplay.length === 0) return null;
-            return { ...workflow, displayTasks: tasksForDisplay };
-        }).filter(w => w !== null);
-        setMyWorkflows(filteredMyWorkflows);
-        setOtherWorkflows([]);
-    }
-  }, [userRole, currentUserId, groupWorkflows]);
-
-    const fetchInitialData = useCallback(async () => {
-        setIsLoading(true);
-
-        const { data: userTasks, error: userTasksError } = await supabase
-            .from('tasks')
-            .select('workflow_instance_id')
-            .or(`primary_assignee_id.eq.${currentUserId},reviewer_id.eq.${currentUserId}`);
-
-        if (userTasksError) {
-            toast({ title: 'Error', description: 'Could not load tasks.', variant: 'destructive' });
-            setIsLoading(false);
-            return;
-        }
-
-        let query = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
-        
-        if (userRole !== 'Admin' && userTasks.length > 0) {
-            const workflowIds = [...new Set(userTasks.map(t => t.workflow_instance_id))];
-            query = query.in('workflow_instance_id', workflowIds);
-        } else if (userRole !== 'Admin' && userTasks.length === 0) {
-            // Non-admin with no tasks, fetch nothing
-            processAndSetWorkflows([]);
-            setIsLoading(false);
-            return;
-        }
-
-        const { data, error } = await query;
-        if (error) {
-            toast({ title: 'Error', description: `Failed to fetch tasks: ${error.message}`, variant: 'destructive' });
+            const myTasks: TaskWithRelations[] = [];
+            const otherTasks: TaskWithRelations[] = [];
+            uniqueTasks.forEach(task => {
+                if (task.workflow_instance_id && myWorkflowIds.has(task.workflow_instance_id)) {
+                    myTasks.push(task);
+                } else {
+                    otherTasks.push(task);
+                }
+            });
+            setMyWorkflows(groupWorkflows(myTasks));
+            setOtherWorkflows(groupWorkflows(otherTasks));
         } else {
-            processAndSetWorkflows(data as TaskWithRelations[]);
+            const allWorkflowGroups = groupWorkflows(uniqueTasks);
+            const filteredMyWorkflows = allWorkflowGroups.map(workflow => {
+                const tasksForDisplay = workflow.tasks.filter((task: TaskWithRelations) => {
+                    if (task.status === 'Pending') return false;
+                    if (task.primary_assignee_id === currentUserId) return true;
+                    if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved'].includes(task.status)) return true;
+                    return false;
+                });
+                if (tasksForDisplay.length === 0) return null;
+                return { ...workflow, displayTasks: tasksForDisplay };
+            }).filter(w => w !== null);
+            setMyWorkflows(filteredMyWorkflows);
+            setOtherWorkflows([]);
         }
         setIsLoading(false);
-    }, [supabase, currentUserId, userRole, toast, processAndSetWorkflows]);
+    }, [userRole, currentUserId, groupWorkflows]);
 
+    useEffect(() => {
+        processAndSetWorkflows(initialTasks);
+    }, [initialTasks, processAndSetWorkflows]);
 
-  useEffect(() => {
-    fetchInitialData();
-
-    const channel = supabase.channel('realtime-tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
-        async (payload) => {
-            console.log('Real-time task update received:', payload);
-            fetchInitialData();
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-            console.log('Subscribed to tasks channel!');
-        }
-        if (err) {
-            console.error('Subscription error:', err);
-            toast({ title: 'Connection Error', description: 'Could not connect to real-time updates.', variant: 'destructive' });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, fetchInitialData, toast]);
+    useEffect(() => {
+      const channel = supabase.channel('realtime-tasks')
+        .on<Task>('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
+          async (payload) => {
+              console.log('Real-time task update received:', payload);
+              // Re-fetch all data to ensure consistency across the dashboard
+              const { data, error } = await supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
+              
+              if (error) {
+                toast({ title: 'Error refreshing data', description: error.message, variant: 'destructive' });
+              } else {
+                processAndSetWorkflows(data as TaskWithRelations[]);
+              }
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+              console.log('Subscribed to tasks channel!');
+          }
+          if (err) {
+              console.error('Subscription error:', err);
+              toast({ title: 'Connection Error', description: 'Could not connect to real-time updates.', variant: 'destructive' });
+          }
+        });
+  
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [supabase, processAndSetWorkflows, toast]);
 
 
   const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
@@ -555,6 +530,4 @@ function DashboardSkeleton() {
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
       </CardContent>
-    </Card>
-  )
-}
+    </

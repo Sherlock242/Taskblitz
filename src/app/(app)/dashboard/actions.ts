@@ -242,7 +242,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
-    .select('*, profiles(id, name, avatar_url)')
+    .select('*, profiles!inner(id, name, avatar_url)')
     .eq('task_id', taskId);
     
   if (commentsError) {
@@ -252,7 +252,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: history, error: historyError } = await supabaseAdmin
     .from('task_history')
-    .select('*, profiles(id, name, avatar_url)')
+    .select('*, profiles!inner(id, name, avatar_url)')
     .eq('task_id', taskId);
 
   if (historyError) {
