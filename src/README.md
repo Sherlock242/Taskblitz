@@ -133,10 +133,36 @@ CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (
 );
 
 -- Comments & History Policies
-CREATE POLICY "Comments viewable by everyone" ON public.comments FOR SELECT USING (true);
-CREATE POLICY "Users manage own comments" ON public.comments FOR ALL USING (user_id = auth.uid());
-CREATE POLICY "Viewable history" ON public.task_history FOR SELECT USING (true);
-CREATE POLICY "System inserts history" ON public.task_history FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Comments viewable by involved users" ON public.comments FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE
+      tasks.id = comments.task_id AND (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
+        tasks.primary_assignee_id = auth.uid() OR
+        tasks.reviewer_id = auth.uid() OR
+        tasks.user_id = auth.uid()
+      )
+  )
+);
+CREATE POLICY "Users can insert and manage own comments" ON public.comments FOR ALL USING (user_id = auth.uid());
+
+
+CREATE POLICY "History viewable by involved users" ON public.task_history FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM public.tasks
+    WHERE
+      tasks.id = task_history.task_id AND (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
+        tasks.primary_assignee_id = auth.uid() OR
+        tasks.reviewer_id = auth.uid() OR
+        tasks.user_id = auth.uid()
+      )
+  )
+);
+CREATE POLICY "System can insert history" ON public.task_history FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- 4. UTILITIES
 

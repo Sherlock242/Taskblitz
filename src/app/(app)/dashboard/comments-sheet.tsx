@@ -25,7 +25,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
     const [open, setOpen] = useState(false);
     const [activity, setActivity] = useState<AuditTrailItem[]>([]);
     const [newComment, setNewComment] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isPosting, startPostingTransition] = useTransition();
     const [isDeleting, startDeletingTransition] = useTransition();
@@ -55,41 +55,6 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
     }, [open, fetchActivity]);
 
     useEffect(() => {
-        if (!open || !task.id) return;
-        
-        const channel = supabase.channel(`activity-for-${task.id}`)
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'comments', filter: `task_id=eq.${task.id}` },
-                (payload) => {
-                    console.log('Comment change received!', payload)
-                    fetchActivity();
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'task_history', filter: `task_id=eq.${task.id}` },
-                (payload) => {
-                    console.log('History change received!', payload)
-                   fetchActivity();
-                }
-            )
-            .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log(`Subscribed to activity for task ${task.id}`);
-                }
-                if (err) {
-                    console.error('Subscription error:', err);
-                    toast({ title: 'Connection Error', description: 'Could not connect to real-time activity.', variant: 'destructive' });
-                }
-            });
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [open, task.id, supabase, fetchActivity, toast]);
-
-    useEffect(() => {
         if (scrollAreaRef.current) {
             scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
         }
@@ -106,7 +71,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 setNewComment("");
-                // Real-time listener will handle the update
+                fetchActivity(); 
             }
         });
     };
@@ -118,7 +83,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted", description: result.data?.message });
-                 // Real-time listener will handle the update
+                 fetchActivity();
             }
         });
     };
@@ -157,16 +122,21 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                             <p className="text-sm text-center text-destructive py-8">{error}</p>
                         ) : activity.length > 0 ? (
                             activity.map(item => {
+                                const profile = item.profiles;
+                                const userName = profile?.name || 'Unknown User';
+                                const userAvatar = profile?.avatar_url || undefined;
+                                const userInitial = userName?.charAt(0) || 'U';
+
                                 if (item.type === 'comment') {
                                     return (
                                         <div key={item.id} className="flex items-start gap-3 group">
                                             <Avatar className="h-8 w-8">
-                                                <AvatarImage src={item.profiles?.avatar_url || undefined} alt={item.profiles?.name || ''} />
-                                                <AvatarFallback>{item.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                                <AvatarImage src={userAvatar} alt={userName} />
+                                                <AvatarFallback>{userInitial}</AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="font-semibold text-sm">{item.profiles?.name}</p>
+                                                    <p className="font-semibold text-sm">{userName}</p>
                                                     <p className="text-xs text-muted-foreground">
                                                         {formatDistanceToNow(new Date(item.date), { addSuffix: true })}
                                                     </p>
@@ -192,11 +162,11 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                                     return (
                                         <div key={item.id} className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8">
-                                                 <AvatarImage src={item.profiles?.avatar_url || undefined} alt={item.profiles?.name || ''} />
-                                                <AvatarFallback>{item.profiles?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                                 <AvatarImage src={userAvatar} alt={userName} />
+                                                <AvatarFallback>{userInitial}</AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1 text-sm text-muted-foreground">
-                                                <span className="font-semibold text-foreground">{item.profiles?.name || 'System'}</span>
+                                                <span className="font-semibold text-foreground">{userName}</span>
                                                 {' changed status from '}
                                                 <Badge variant="outline" className="font-medium">{item.previous_status || 'None'}</Badge>
                                                 <ArrowRight className="inline-block h-3 w-3 mx-1" />
@@ -225,4 +195,11 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                         />
                         <Button type="submit" size="icon" disabled={isPosting || !newComment.trim()}>
                             <Send className="h-4 w-4" />
-                            <span className="sr-only
+                            <span className="sr-only">Send</span>
+                        </Button>
+                    </form>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}

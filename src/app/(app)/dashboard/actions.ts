@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Task, Comment, AuditTrailItem, TaskHistory } from '@/lib/types';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { revalidatePath } from 'next/cache';
 
 export async function updateTaskStatus(taskId: string, newStatus: Task['status']) {
   const supabase = createClient();
@@ -150,6 +151,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     }
   }
 
+  revalidatePath('/dashboard');
   return { error: null };
 }
 
@@ -177,6 +179,7 @@ export async function deleteTask(taskId: string) {
     return { error: { message: `Failed to delete task: ${error.message}` } };
   }
 
+  revalidatePath('/dashboard');
   return { data: { message: 'Task deleted successfully.' } };
 }
 
@@ -222,7 +225,7 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
   if (error) {
     return { error: { message: `Failed to update task: ${error.message}` } };
   }
-
+  revalidatePath('/dashboard');
   return { data: { message: 'Task updated successfully.' } };
 }
 
@@ -242,7 +245,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
-    .select('*, profiles!inner(id, name, avatar_url)')
+    .select('*, profiles!comments_user_id_fkey(id, name, avatar_url)')
     .eq('task_id', taskId);
     
   if (commentsError) {
@@ -252,7 +255,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: history, error: historyError } = await supabaseAdmin
     .from('task_history')
-    .select('*, profiles!inner(id, name, avatar_url)')
+    .select('*, profiles!task_history_user_id_fkey(id, name, avatar_url)')
     .eq('task_id', taskId);
 
   if (historyError) {
@@ -300,7 +303,7 @@ export async function addComment(taskId: string, content: string) {
   if (error) {
     return { error: { message: `Failed to add comment: ${error.message}` } };
   }
-
+  revalidatePath(`/dashboard`);
   return { data: { message: 'Comment added.' } };
 }
 
@@ -336,6 +339,6 @@ export async function deleteComment(commentId: string) {
   if (error) {
     return { error: { message: `Failed to delete comment: ${error.message}` } };
   }
-
+  revalidatePath(`/dashboard`);
   return { data: { message: 'Comment deleted.' } };
 }
