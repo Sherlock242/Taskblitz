@@ -19,6 +19,7 @@ import { EditTaskDialog } from './edit-task-dialog';
 import { CommentsSheet } from './comments-sheet';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MessageSquare } from 'lucide-react';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -62,6 +63,8 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
   const [myWorkflows, setMyWorkflows] = useState<any[]>([]);
   const [otherWorkflows, setOtherWorkflows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [commentsSheetTask, setCommentsSheetTask] = useState<TaskWithRelations | null>(null);
+
 
   const supabase = createClient();
 
@@ -315,7 +318,10 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
                                             )}
                                       </div>
                                       <div className="flex items-center">
-                                          <CommentsSheet task={task} userRole={userRole} currentUserId={currentUserId} />
+                                          <Button variant="ghost" size="icon" onClick={() => setCommentsSheetTask(task)}>
+                                              <MessageSquare className="h-4 w-4" />
+                                              <span className="sr-only">Activity</span>
+                                          </Button>
                                           {isAdmin && (
                                               <>
                                                   <EditTaskDialog task={task} />
@@ -466,7 +472,10 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
                                           </TableCell>
                                           <TableCell className="text-right">
                                               <div className="flex items-center justify-end">
-                                                  <CommentsSheet task={task} userRole={userRole} currentUserId={currentUserId} />
+                                                    <Button variant="ghost" size="icon" onClick={() => setCommentsSheetTask(task)}>
+                                                        <MessageSquare className="h-4 w-4" />
+                                                        <span className="sr-only">Activity</span>
+                                                    </Button>
                                                   {userRole === 'Admin' && (
                                                       <>
                                                           <EditTaskDialog task={task} />
@@ -530,6 +539,20 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
           </div>
         </div>
       )}
+
+        {commentsSheetTask && (
+            <CommentsSheet
+                task={commentsSheetTask}
+                userRole={userRole}
+                currentUserId={currentUserId}
+                open={!!commentsSheetTask}
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) {
+                        setCommentsSheetTask(null);
+                    }
+                }}
+            />
+        )}
     </div>
   );
 }

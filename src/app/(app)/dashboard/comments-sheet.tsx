@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useTransition, useEffect, useRef, useCallback } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
 import { getAuditTrail, addComment, deleteComment } from "./actions"
 import type { Task, AuditTrailItem, User } from "@/lib/types"
-import { MessageSquare, Send, Trash2, ArrowRight } from "lucide-react"
+import { Send, Trash2, ArrowRight } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/client"
@@ -19,10 +19,11 @@ interface CommentsSheetProps {
     task: Task;
     userRole: User['role'];
     currentUserId: string;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
 }
 
-export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetProps) {
-    const [open, setOpen] = useState(false);
+export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChange }: CommentsSheetProps) {
     const [activity, setActivity] = useState<AuditTrailItem[]>([]);
     const [newComment, setNewComment] = useState("");
     const [isLoading, setIsLoading] = useState(true);
@@ -129,13 +130,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
 
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <MessageSquare className="h-4 w-4" />
-                    <span className="sr-only">Activity</span>
-                </Button>
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent 
                 className="sm:max-w-lg max-h-[80vh] flex flex-col"
                 onPointerDownOutside={handlePointerDownOutside}
