@@ -102,15 +102,66 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
       return Object.values(groups).sort((a, b) => (b as any).lastActivity.getTime() - (a as any).lastActivity.getTime());
   }, []);
 
-    const processAndSetWorkflows = useCallback((tasks: TaskWithRelations[]) => {
-        const uniqueTasks = Array.from(new Map(tasks.map(task => [task.id, task])).values());
+    
+    useEffect(() => {
+      const channel = supabase
+        .channel('realtime-dashboard')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'tasks' },
+          async (payload) => {
+            console.log('Real-time task update received:', payload);
+            if (payload.eventType === 'INSERT') {
+              const { data, error } = await supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)').eq('id', payload.new.id).single();
+              if (data) {
+                setAllTasks(prevTasks => {
+                  const taskExists = prevTasks.some(t => t.id === data.id);
+                  if (!taskExists) {
+                    return [...prevTasks, data as TaskWithRelations];
+                  }
+                  return prevTasks;
+                });
+              }
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedTask = payload.new as Task;
+              setAllTasks(prevTasks =>
+                prevTasks.map(t => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t))
+              );
+            } else if (payload.eventType === 'DELETE') {
+              const deletedTaskId = payload.old.id;
+              setAllTasks(prevTasks => prevTasks.filter(t => t.id !== deletedTaskId));
+            }
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Subscribed to dashboard real-time updates!');
+          }
+          if (err) {
+            console.error('Subscription error:', err);
+            toast({
+              title: 'Connection Error',
+              description: 'Could not connect to real-time updates.',
+              variant: 'destructive',
+            });
+          }
+        });
+  
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [supabase, toast]);
+
+
+    useEffect(() => {
+        setIsLoading(true);
+        const uniqueTasks = Array.from(new Map(allTasks.map(task => [task.id, task])).values());
         uniqueTasks.sort((a, b) => {
             const dateA = new Date(a.created_at).getTime();
             const dateB = new Date(b.created_at).getTime();
             if (dateA !== dateB) return dateB - dateA;
             return (a.position ?? 0) - (b.position ?? 0);
         });
-        setAllTasks(uniqueTasks);
 
         if (userRole === 'Admin') {
             const myWorkflowIds = new Set<string>();
@@ -147,66 +198,7 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
             setOtherWorkflows([]);
         }
         setIsLoading(false);
-    }, [userRole, currentUserId, groupWorkflows]);
-
-    useEffect(() => {
-        processAndSetWorkflows(initialTasks);
-    }, [initialTasks, processAndSetWorkflows]);
-    
-    useEffect(() => {
-      const channel = supabase
-        .channel('realtime-dashboard')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'tasks' },
-          (payload) => {
-            console.log('Real-time task update received:', payload);
-            if (payload.eventType === 'INSERT') {
-              // This is a complex case, a full re-fetch is safest
-              fetchAndProcessTasks();
-            } else if (payload.eventType === 'UPDATE') {
-              const updatedTask = payload.new as Task;
-              setAllTasks(prevTasks =>
-                prevTasks.map(t => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t))
-              );
-            } else if (payload.eventType === 'DELETE') {
-              const deletedTaskId = payload.old.id;
-              setAllTasks(prevTasks => prevTasks.filter(t => t.id !== deletedTaskId));
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') {
-            console.log('Subscribed to dashboard real-time updates!');
-          }
-          if (err) {
-            console.error('Subscription error:', err);
-            toast({
-              title: 'Connection Error',
-              description: 'Could not connect to real-time updates.',
-              variant: 'destructive',
-            });
-          }
-        });
-  
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }, [supabase, toast]);
-
-    // This effect re-groups workflows whenever the base `allTasks` state changes.
-    useEffect(() => {
-        processAndSetWorkflows(allTasks);
-    }, [allTasks, processAndSetWorkflows]);
-
-    const fetchAndProcessTasks = async () => {
-        const { data, error } = await supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
-        if (error) {
-            toast({ title: 'Error refreshing data', description: error.message, variant: 'destructive' });
-        } else {
-            processAndSetWorkflows(data as TaskWithRelations[]);
-        }
-    }
+    }, [allTasks, userRole, currentUserId, groupWorkflows]);
 
   const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
     startTransition(async () => {
@@ -558,3 +550,5 @@ function DashboardSkeleton() {
     </Card>
   )
 }
+
+    
