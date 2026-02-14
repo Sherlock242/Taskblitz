@@ -141,7 +141,12 @@ USING (
       )
   )
 );
-CREATE POLICY "Users can insert and manage own comments" ON public.comments FOR ALL USING (user_id = auth.uid());
+
+-- ** The following policies are corrected for proper real-time delete **
+DROP POLICY IF EXISTS "Users can insert and manage own comments" ON public.comments;
+CREATE POLICY "Users can insert their own comments" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own comments" ON public.comments FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own comments, and Admins can delete any" ON public.comments FOR DELETE USING ( (auth.uid() = user_id) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')) );
 
 
 CREATE POLICY "History viewable by involved users" ON public.task_history FOR SELECT
