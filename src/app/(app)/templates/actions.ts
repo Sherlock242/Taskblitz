@@ -64,6 +64,5 @@ export async function deleteTemplate(id: string) {
     return { error: { message: `Failed to delete template: ${error.message}` } };
   }
   
-  revalidatePath('/templates');
   return { data: { message: 'Template deleted successfully.' } };
 }

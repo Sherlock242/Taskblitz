@@ -13,13 +13,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { updateTaskStatus } from './actions';
-import { DeleteTaskDialog } from './delete-task-dialog';
+import { updateTaskStatus, deleteTask } from './actions';
 import { EditTaskDialog } from './edit-task-dialog';
 import { CommentsSheet } from './comments-sheet';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -64,6 +65,7 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
   const [otherWorkflows, setOtherWorkflows] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [commentsSheetTask, setCommentsSheetTask] = useState<TaskWithRelations | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<TaskWithRelations | null>(null);
 
 
   const supabase = createClient();
@@ -200,12 +202,41 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
     }, [allTasks, userRole, currentUserId, groupWorkflows]);
 
   const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
+    const originalTasks = allTasks;
+    const newTasks = allTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
+    setAllTasks(newTasks);
+
     startTransition(async () => {
       const { error } = await updateTaskStatus(taskId, newStatus);
       if (error) {
+        setAllTasks(originalTasks);
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       }
-      // Real-time update will handle the UI change
+    });
+  };
+
+  const handleTaskDelete = () => {
+    if (!taskToDelete) return;
+    
+    const originalTasks = [...allTasks];
+    setAllTasks(currentTasks => currentTasks.filter(t => t.id !== taskToDelete.id));
+    setTaskToDelete(null);
+
+    startTransition(async () => {
+        const { error } = await deleteTask(taskToDelete.id);
+        if (error) {
+            setAllTasks(originalTasks);
+            toast({
+                title: 'Error deleting task',
+                description: error.message,
+                variant: 'destructive',
+            });
+        } else {
+            toast({
+                title: 'Task Deleted',
+                description: `The "${taskToDelete.name}" task has been deleted.`,
+            });
+        }
     });
   };
 
@@ -321,7 +352,10 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
                                           {isAdmin && (
                                               <>
                                                   <EditTaskDialog task={task} />
-                                                  <DeleteTaskDialog taskId={task.id} taskName={task.name} />
+                                                  <Button variant="ghost" size="icon" onClick={() => setTaskToDelete(task)} className="text-destructive hover:text-destructive">
+                                                      <Trash2 className="h-4 w-4" />
+                                                      <span className="sr-only">Delete Task</span>
+                                                  </Button>
                                               </>
                                           )}
                                       </div>
@@ -475,7 +509,10 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
                                                   {userRole === 'Admin' && (
                                                       <>
                                                           <EditTaskDialog task={task} />
-                                                          <DeleteTaskDialog taskId={task.id} taskName={task.name} />
+                                                           <Button variant="ghost" size="icon" onClick={() => setTaskToDelete(task)} className="text-destructive hover:text-destructive">
+                                                              <Trash2 className="h-4 w-4" />
+                                                              <span className="sr-only">Delete Task</span>
+                                                          </Button>
                                                       </>
                                                   )}
                                               </div>
@@ -536,19 +573,38 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
         </div>
       )}
 
-        {commentsSheetTask && (
-            <CommentsSheet
-                task={commentsSheetTask}
-                userRole={userRole}
-                currentUserId={currentUserId}
-                open={!!commentsSheetTask}
-                onOpenChange={(isOpen) => {
-                    if (!isOpen) {
-                        setCommentsSheetTask(null);
-                    }
-                }}
-            />
-        )}
+      {commentsSheetTask && (
+          <CommentsSheet
+              task={commentsSheetTask}
+              userRole={userRole}
+              currentUserId={currentUserId}
+              open={!!commentsSheetTask}
+              onOpenChange={(isOpen) => {
+                  if (!isOpen) {
+                      setCommentsSheetTask(null);
+                  }
+              }}
+          />
+      )}
+
+      {taskToDelete && (
+        <AlertDialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the <strong>{taskToDelete.name}</strong> task.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isTransitioning}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleTaskDelete} disabled={isTransitioning} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                        {isTransitioning ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
@@ -569,5 +625,3 @@ function DashboardSkeleton() {
     </Card>
   )
 }
-
-    

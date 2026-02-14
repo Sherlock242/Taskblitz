@@ -30,7 +30,6 @@ export async function updateUserRole(userId: string, role: User['role']) {
         return { error: { message: error.message } };
     }
 
-    revalidatePath('/users');
     return { data: { message: 'User role updated.' } };
 }
 
@@ -63,6 +62,5 @@ export async function deleteUser(userId: string) {
         return { error: { message: `Failed to remove user: ${error.message}` } };
     }
 
-    revalidatePath('/users');
     return { data: { message: 'User removed successfully.' } };
 }

@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Template, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { ListChecks, Edit } from 'lucide-react';
+import { ListChecks, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AddTemplateDialog } from './dialog';
-import { DeleteTemplateDialog } from './delete-template-dialog';
+import { deleteTemplate } from './actions';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface TemplatesClientProps {
     initialTemplates: Template[];
@@ -16,6 +18,9 @@ interface TemplatesClientProps {
 
 export function TemplatesClient({ initialTemplates, users }: TemplatesClientProps) {
     const [templates, setTemplates] = useState<Template[]>(initialTemplates);
+    const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
+    const [isTransitioning, startTransition] = useTransition();
+    const { toast } = useToast();
     const supabase = createClient();
 
     useEffect(() => {
@@ -50,6 +55,31 @@ export function TemplatesClient({ initialTemplates, users }: TemplatesClientProp
             supabase.removeChannel(channel);
         };
     }, [supabase]);
+
+    const handleTemplateDelete = () => {
+        if (!templateToDelete) return;
+
+        const originalTemplates = [...templates];
+        setTemplates(currentTemplates => currentTemplates.filter(t => t.id !== templateToDelete.id));
+        setTemplateToDelete(null);
+
+        startTransition(async () => {
+            const { error } = await deleteTemplate(templateToDelete.id);
+            if (error) {
+                setTemplates(originalTemplates);
+                toast({
+                    title: 'Error deleting template',
+                    description: error.message,
+                    variant: 'destructive',
+                });
+            } else {
+                toast({
+                    title: 'Template Deleted',
+                    description: `The "${templateToDelete.name}" template has been deleted.`,
+                });
+            }
+        });
+    };
     
     if (templates.length === 0) {
         return (
@@ -106,11 +136,32 @@ export function TemplatesClient({ initialTemplates, users }: TemplatesClientProp
                                     <span className="sr-only">Edit Template</span>
                                 </Button>
                             </AddTemplateDialog>
-                            <DeleteTemplateDialog templateId={template.id} templateName={template.name} />
+                            <Button variant="ghost" size="icon" onClick={() => setTemplateToDelete(template)} className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Delete Template</span>
+                            </Button>
                         </div>
                     </CardFooter>
                 </Card>
             ))}
+             {templateToDelete && (
+                <AlertDialog open={!!templateToDelete} onOpenChange={(open) => !open && setTemplateToDelete(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the <strong>{templateToDelete.name}</strong> template and any associated data.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isTransitioning}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleTemplateDelete} disabled={isTransitioning} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                {isTransitioning ? 'Deleting...' : 'Delete'}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
         </>
     );
 }

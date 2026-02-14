@@ -178,7 +178,6 @@ export async function deleteTask(taskId: string) {
     return { error: { message: `Failed to delete task: ${error.message}` } };
   }
 
-  revalidatePath('/dashboard');
   return { data: { message: 'Task deleted successfully.' } };
 }
 

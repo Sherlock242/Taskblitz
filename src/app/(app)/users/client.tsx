@@ -9,9 +9,11 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { updateUserRole } from './actions';
-import { DeleteUserDialog } from './delete-user-dialog';
+import { updateUserRole, deleteUser } from './actions';
 import { createClient } from '@/lib/supabase/client';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 
 
 interface UsersClientProps {
@@ -22,6 +24,7 @@ interface UsersClientProps {
 
 export function UsersClient({ users: initialUsers, currentUserId, currentUserRole }: UsersClientProps) {
     const [users, setUsers] = useState<User[]>(initialUsers);
+    const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const isMobile = useIsMobile();
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
@@ -68,12 +71,41 @@ export function UsersClient({ users: initialUsers, currentUserId, currentUserRol
 
 
     const handleRoleChange = (userId: string, newRole: User['role']) => {
+        const originalUsers = [...users];
+        setUsers(currentUsers => currentUsers.map(u => u.id === userId ? { ...u, role: newRole } : u));
+        
         startTransition(async () => {
             const result = await updateUserRole(userId, newRole);
             if (result.error) {
+                setUsers(originalUsers);
                 toast({ title: 'Error', description: result.error.message, variant: 'destructive' });
             } else {
                 toast({ title: 'Success', description: 'User role updated.' });
+            }
+        });
+    };
+
+    const handleUserDelete = () => {
+        if (!userToDelete) return;
+
+        const originalUsers = [...users];
+        setUsers(currentUsers => currentUsers.filter(u => u.id !== userToDelete.id));
+        setUserToDelete(null);
+
+        startTransition(async () => {
+            const { error } = await deleteUser(userToDelete.id);
+            if (error) {
+                setUsers(originalUsers);
+                toast({
+                    title: 'Error removing user',
+                    description: error.message,
+                    variant: 'destructive',
+                });
+            } else {
+                toast({
+                    title: 'User Removed',
+                    description: `The user "${userToDelete.name}" has been removed.`,
+                });
             }
         });
     };
@@ -130,7 +162,9 @@ export function UsersClient({ users: initialUsers, currentUserId, currentUserRol
                                                     <SelectItem value="Member">Member</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                            <DeleteUserDialog userId={user.id} userName={user.name} />
+                                            <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} className="text-destructive hover:text-destructive">
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
                                         </>
                                     ) : (
                                         <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
@@ -140,11 +174,30 @@ export function UsersClient({ users: initialUsers, currentUserId, currentUserRol
                         </CardHeader>
                     </Card>
                 ))}
+                {userToDelete && (
+                    <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the user <strong>{userToDelete.name}</strong> and all of their associated data.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleUserDelete} disabled={isPending} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                    {isPending ? 'Removing...' : 'Remove User'}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
             </div>
         );
     }
 
     return (
+        <>
         <Card>
             <CardHeader>
                 <CardTitle className="font-headline">User Management</CardTitle>
@@ -189,7 +242,9 @@ export function UsersClient({ users: initialUsers, currentUserId, currentUserRol
                                                         <SelectItem value="Member">Member</SelectItem>
                                                     </SelectContent>
                                                 </Select>
-                                                <DeleteUserDialog userId={user.id} userName={user.name} />
+                                                <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} className="text-destructive hover:text-destructive">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             </>
                                         ) : (
                                             <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
@@ -202,5 +257,24 @@ export function UsersClient({ users: initialUsers, currentUserId, currentUserRol
                 </Table>
             </CardContent>
         </Card>
+        {userToDelete && (
+            <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the user <strong>{userToDelete.name}</strong> and all of their associated data.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleUserDelete} disabled={isPending} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                            {isPending ? 'Removing...' : 'Remove User'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        )}
+        </>
     );
 }
