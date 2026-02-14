@@ -118,12 +118,16 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
 
     const handleDeleteComment = async (commentId: string) => {
         startDeletingTransition(async () => {
+            // Optimistically remove the comment from the UI
+            const originalActivity = [...activity];
+            setActivity(prev => prev.filter(item => item.id !== commentId));
+
             const result = await deleteComment(commentId);
             if (result.error) {
+                // If the delete fails, revert the change and show an error
+                setActivity(originalActivity);
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
-                // Instant UI update for the current user
-                setActivity(prev => prev.filter(item => item.id !== commentId));
                 toast({ title: "Comment Deleted" });
             }
         });

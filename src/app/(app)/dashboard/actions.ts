@@ -236,6 +236,8 @@ export async function getAuditTrail(taskId: string) {
       return { error: { message: 'You must be logged in to view activity.' } };
   }
   
+  // Use admin client to bypass RLS for a complete audit trail view,
+  // but rely on client-side RLS through subscriptions for real-time.
   const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -244,7 +246,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
-    .select('*, profiles!comments_user_id_fkey(id, name, avatar_url)')
+    .select('*, profiles(id, name, avatar_url)')
     .eq('task_id', taskId);
     
   if (commentsError) {
@@ -254,7 +256,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: history, error: historyError } = await supabaseAdmin
     .from('task_history')
-    .select('*, profiles!task_history_user_id_fkey(id, name, avatar_url)')
+    .select('*, profiles(id, name, avatar_url)')
     .eq('task_id', taskId);
 
   if (historyError) {
@@ -297,21 +299,14 @@ export async function addComment(taskId: string, content: string) {
     task_id: taskId,
     user_id: user.id,
     content,
-  }).select().single();
+  }).select('*, profiles(id, name, avatar_url)').single();
 
   if (insertError) {
     return { error: { message: `Failed to add comment: ${insertError.message}` } };
   }
 
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('id, name, avatar_url')
-    .eq('id', user.id)
-    .single();
-
   const formattedComment = {
     ...commentData,
-    profiles: profileData || null,
     type: 'comment' as const,
     date: commentData.created_at
   };

@@ -13,7 +13,6 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 -- 1. CREATE TABLES
 
 -- Profiles table (linked to auth.users)
--- This handles user identity, roles, and avatar metadata.
 CREATE TABLE public.profiles (
     id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT,
@@ -24,7 +23,6 @@ CREATE TABLE public.profiles (
 );
 
 -- Templates table
--- Stores reusable task sequences in JSONB format.
 CREATE TABLE public.templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -34,7 +32,6 @@ CREATE TABLE public.templates (
 );
 
 -- Tasks table
--- Individual instances of work. Linked by workflow_instance_id.
 CREATE TABLE public.tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_instance_id UUID NOT NULL,
@@ -52,23 +49,21 @@ CREATE TABLE public.tasks (
     position INTEGER
 );
 
--- Task History table (Audit Trails)
--- Tracks every status change for every task.
+-- Task History table (Audit Trails) - CORRECTED
 CREATE TABLE public.task_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, -- Correctly references profiles
     previous_status TEXT,
     new_status TEXT NOT NULL,
     changed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Comments table
--- For task-level collaboration.
+-- Comments table - CORRECTED
 CREATE TABLE public.comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, -- Correctly references profiles
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -181,4 +176,8 @@ $$;
 --    - Allowed to: SELECT, INSERT, UPDATE
 --    - For users: authenticated
 --    - Path: (select (auth.uid() = (storage.foldername(name))[1]))
+
+-- 6. Enable Realtime
+-- This tells Supabase to broadcast changes on these tables.
+alter publication supabase_realtime add table public.comments, public.task_history, public.tasks;
 ```
