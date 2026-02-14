@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useTransition, useEffect, useRef, useCallback } from "react"
@@ -55,11 +54,13 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         }
     }, [open, fetchActivity]);
 
+    // This is the real-time listener. It refetches data on any change.
     useEffect(() => {
         if (!open || !task.id) return;
 
-        const handleRealtimeUpdate = () => {
-            fetchActivity(false); // Refetch data on any change
+        const handleRealtimeUpdate = (payload: any) => {
+            // Refetch activity to ensure UI is in sync with the database
+            fetchActivity(false);
         };
 
         const commentsChannel = supabase
@@ -85,7 +86,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
             supabase.removeChannel(commentsChannel);
             supabase.removeChannel(historyChannel);
         };
-    }, [open, task.id, supabase, fetchActivity]);
+    }, [open, task.id, supabase, fetchActivity, toast]);
 
     useEffect(() => {
         if (scrollAreaRef.current) {
@@ -102,25 +103,28 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         if (!content) return;
 
         startPostingTransition(async () => {
-            setNewComment("");
+            const originalComment = newComment;
+            setNewComment(""); // Clear input immediately
+
             const result = await addComment(task.id, content);
+            
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
-                setNewComment(content);
+                setNewComment(originalComment); // Restore input if error
             }
-            // No optimistic update; real-time will handle the refresh
+            // No optimistic update; the real-time listener will handle the refresh.
         });
     };
 
     const handleDeleteComment = async (commentId: string) => {
         startDeletingTransition(async () => {
+            // We let the realtime listener handle the UI change.
             const result = await deleteComment(commentId);
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted" });
             }
-             // No optimistic update; real-time will handle the refresh
         });
     };
 
