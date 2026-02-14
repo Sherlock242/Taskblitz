@@ -60,19 +60,13 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         if (!open || !task.id) return;
 
         const handleRealtimeUpdate = (payload: any) => {
-            if (payload.eventType === 'INSERT') {
-                const newRecord = payload.new;
-                const recordType = payload.table === 'comments' ? 'comment' : 'status_change';
-                const date = payload.table === 'comments' ? newRecord.created_at : newRecord.changed_at;
-                
-                // Avoid adding our own inserts twice
-                if (newRecord.user_id === currentUserId) return;
-                
-                setActivity(prev => [...prev, { ...newRecord, type: recordType, date }]);
-            } else {
-                 // For DELETE and UPDATE, a simple refetch is the most reliable way
-                 fetchActivity(false);
+             // A simple refetch is the most reliable way to handle any change from another user.
+            // We check the user_id to avoid refetching for our own actions, which are handled optimistically.
+            const recordUserId = payload.new?.user_id || payload.old?.user_id;
+            if (recordUserId && recordUserId === currentUserId) {
+                return;
             }
+            fetchActivity(false);
         };
 
         const commentsChannel = supabase
@@ -210,6 +204,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
                                                 <span className="font-semibold text-foreground">{userName}</span>
                                                 {' changed status from '}
                                                 <Badge variant="outline" className="font-medium">{item.previous_status || 'None'}</Badge>
+
                                                 <ArrowRight className="inline-block h-3 w-3 mx-1" />
                                                 <Badge variant="outline" className="font-medium">{item.new_status}</Badge>
                                                 <span className="text-xs text-muted-foreground ml-2">
