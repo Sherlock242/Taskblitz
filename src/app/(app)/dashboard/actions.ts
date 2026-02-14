@@ -2,7 +2,6 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { revalidatePath } from 'next/cache';
 import type { Task, Comment, AuditTrailItem, TaskHistory } from '@/lib/types';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 
@@ -152,7 +151,6 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     }
   }
 
-  revalidatePath('/dashboard');
   return { error: null };
 }
 
@@ -180,7 +178,6 @@ export async function deleteTask(taskId: string) {
     return { error: { message: `Failed to delete task: ${error.message}` } };
   }
 
-  revalidatePath('/dashboard');
   return { data: { message: 'Task deleted successfully.' } };
 }
 
@@ -227,7 +224,6 @@ export async function updateTask(taskId: string, updates: Partial<Pick<Task, 'na
     return { error: { message: `Failed to update task: ${error.message}` } };
   }
 
-  revalidatePath('/dashboard');
   return { data: { message: 'Task updated successfully.' } };
 }
 
@@ -239,15 +235,11 @@ export async function getAuditTrail(taskId: string) {
       return { error: { message: 'You must be logged in to view activity.' } };
   }
   
-  const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-  );
+  const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const { data: comments, error: commentsError } = await supabaseAdmin
     .from('comments')
-    .select('*')
+    .select('*, profiles:user_id(id, name, avatar_url)')
     .eq('task_id', taskId);
     
   if (commentsError) {
@@ -257,7 +249,7 @@ export async function getAuditTrail(taskId: string) {
 
   const { data: history, error: historyError } = await supabaseAdmin
     .from('task_history')
-    .select('*')
+    .select('*, profiles:user_id(id, name, avatar_url)')
     .eq('task_id', taskId);
 
   if (historyError) {
@@ -265,35 +257,14 @@ export async function getAuditTrail(taskId: string) {
     return { error: { message: `Failed to fetch history: ${historyError.message}` } };
   }
 
-  const allItems = [...(comments || []), ...(history || [])];
-  if (allItems.length === 0) {
-    return { data: [] };
-  }
-
-  const userIds = [...new Set(allItems.map(i => i.user_id))];
-
-  const { data: profiles, error: profilesError } = await supabaseAdmin
-    .from('profiles')
-    .select('id, name, avatar_url')
-    .in('id', userIds);
-
-  if (profilesError) {
-    console.error("Error fetching profiles:", profilesError);
-    return { error: { message: `Failed to fetch profiles: ${profilesError.message}` } };
-  }
-  
-  const profileMap = new Map(profiles.map(p => [p.id, {name: p.name, avatar_url: p.avatar_url}]));
-
   const formattedComments = (comments || []).map(comment => ({
     ...comment,
-    profiles: profileMap.get(comment.user_id) || null,
     type: 'comment' as const,
     date: comment.created_at
   }));
 
   const formattedHistory = (history || []).map(item => ({
     ...item,
-    profiles: profileMap.get(item.user_id) || null,
     type: 'status_change' as const,
     date: item.changed_at
   }));
@@ -317,13 +288,7 @@ export async function addComment(taskId: string, content: string) {
     return { error: { message: 'Comment cannot be empty.' } };
   }
   
-  const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  const { error } = await supabaseAdmin.from('comments').insert({
+  const { error } = await supabase.from('comments').insert({
     task_id: taskId,
     user_id: user.id,
     content,
@@ -333,7 +298,6 @@ export async function addComment(taskId: string, content: string) {
     return { error: { message: `Failed to add comment: ${error.message}` } };
   }
 
-  // Removed revalidatePath to prevent unmounting the dialog during dashboard refresh
   return { data: { message: 'Comment added.' } };
 }
 
@@ -344,14 +308,8 @@ export async function deleteComment(commentId: string) {
   if (!user) {
     return { error: { message: 'You must be logged in to delete comments.' } };
   }
-  
-  const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-  );
 
-  const { data: comment, error: fetchError } = await supabaseAdmin
+  const { data: comment, error: fetchError } = await supabase
     .from('comments')
     .select('user_id')
     .eq('id', commentId)
@@ -367,7 +325,7 @@ export async function deleteComment(commentId: string) {
       return { error: { message: "You don't have permission to delete this comment." } };
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await supabase
     .from('comments')
     .delete()
     .eq('id', commentId);
@@ -376,6 +334,5 @@ export async function deleteComment(commentId: string) {
     return { error: { message: `Failed to delete comment: ${error.message}` } };
   }
 
-  // Removed revalidatePath to prevent unmounting the dialog during dashboard refresh
   return { data: { message: 'Comment deleted.' } };
 }

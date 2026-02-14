@@ -1,9 +1,10 @@
 
 "use client";
 
-import React, { useTransition } from 'react';
+import React, { useTransition, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import type { Task, User, Template } from '@/lib/types';
+import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ import { DeleteTaskDialog } from './delete-task-dialog';
 import { EditTaskDialog } from './edit-task-dialog';
 import { CommentsSheet } from './comments-sheet';
 import { formatDistanceToNow } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
   switch (status) {
@@ -46,16 +48,169 @@ export type TaskWithRelations = Task & {
 };
 
 interface DashboardClientProps {
-  myWorkflows: any[];
-  otherWorkflows: any[];
   userRole: User['role'];
   currentUserId: string;
 }
 
-export function DashboardClient({ myWorkflows, otherWorkflows, userRole, currentUserId }: DashboardClientProps) {
+export function DashboardClient({ userRole, currentUserId }: DashboardClientProps) {
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const [isTransitioning, startTransition] = useTransition();
+
+  const [allTasks, setAllTasks] = useState<TaskWithRelations[]>([]);
+  const [myWorkflows, setMyWorkflows] = useState<any[]>([]);
+  const [otherWorkflows, setOtherWorkflows] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const supabase = createClient();
+
+  const groupWorkflows = useCallback((tasksToGroup: TaskWithRelations[]) => {
+      const groups: Record<string, any> = {};
+      const tasksByWorkflow: Record<string, TaskWithRelations[]> = {};
+
+      tasksToGroup.forEach(task => {
+          if (!task.workflow_instance_id) return;
+          if (!tasksByWorkflow[task.workflow_instance_id]) {
+              tasksByWorkflow[task.workflow_instance_id] = [];
+          }
+          tasksByWorkflow[task.workflow_instance_id].push(task);
+      });
+
+      for (const workflowId in tasksByWorkflow) {
+          const workflowTasks = tasksByWorkflow[workflowId];
+          workflowTasks.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+          const firstTask = workflowTasks[0];
+          if (!firstTask) continue;
+          
+          const lastActivityDate = workflowTasks.reduce((latest, task) => {
+              const taskDate = new Date(task.updated_at || task.created_at);
+              return taskDate > latest ? taskDate : latest;
+          }, new Date(0));
+
+          groups[workflowId] = {
+              id: workflowId,
+              name: firstTask.templates?.name || 'General Tasks',
+              description: firstTask.templates?.description || '',
+              tasks: workflowTasks,
+              assigner: firstTask.assigner,
+              assignee: firstTask.primary_assignee, 
+              reviewer: firstTask.reviewer,
+              lastActivity: lastActivityDate,
+          };
+      }
+      return Object.values(groups).sort((a, b) => (b as any).lastActivity.getTime() - (a as any).lastActivity.getTime());
+  }, []);
+
+  const processAndSetWorkflows = useCallback((tasks: TaskWithRelations[]) => {
+    const uniqueTasks = Array.from(new Map(tasks.map(task => [task.id, task])).values());
+    uniqueTasks.sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        if (dateA !== dateB) return dateB - dateA;
+        return (a.position ?? 0) - (b.position ?? 0);
+    });
+    setAllTasks(uniqueTasks);
+
+    if (userRole === 'Admin') {
+        const myWorkflowIds = new Set<string>();
+        uniqueTasks.forEach(task => {
+            if (!task.workflow_instance_id) return;
+            if (task.primary_assignee_id === currentUserId || (task.reviewer_id === currentUserId && task.status === 'Submitted for Review')) {
+                myWorkflowIds.add(task.workflow_instance_id);
+            }
+        });
+        const myTasks: TaskWithRelations[] = [];
+        const otherTasks: TaskWithRelations[] = [];
+        uniqueTasks.forEach(task => {
+            if (task.workflow_instance_id && myWorkflowIds.has(task.workflow_instance_id)) {
+                myTasks.push(task);
+            } else {
+                otherTasks.push(task);
+            }
+        });
+        setMyWorkflows(groupWorkflows(myTasks));
+        setOtherWorkflows(groupWorkflows(otherTasks));
+    } else {
+        const allWorkflowGroups = groupWorkflows(uniqueTasks);
+        const filteredMyWorkflows = allWorkflowGroups.map(workflow => {
+            const tasksForDisplay = workflow.tasks.filter((task: TaskWithRelations) => {
+                if (task.status === 'Pending') return false;
+                if (task.primary_assignee_id === currentUserId) return true;
+                if (task.reviewer_id === currentUserId && ['Submitted for Review', 'Changes Requested', 'Approved'].includes(task.status)) return true;
+                return false;
+            });
+            if (tasksForDisplay.length === 0) return null;
+            return { ...workflow, displayTasks: tasksForDisplay };
+        }).filter(w => w !== null);
+        setMyWorkflows(filteredMyWorkflows);
+        setOtherWorkflows([]);
+    }
+  }, [userRole, currentUserId, groupWorkflows]);
+
+    const fetchInitialData = useCallback(async () => {
+        setIsLoading(true);
+
+        const { data: userTasks, error: userTasksError } = await supabase
+            .from('tasks')
+            .select('workflow_instance_id')
+            .or(`primary_assignee_id.eq.${currentUserId},reviewer_id.eq.${currentUserId}`);
+
+        if (userTasksError) {
+            toast({ title: 'Error', description: 'Could not load tasks.', variant: 'destructive' });
+            setIsLoading(false);
+            return;
+        }
+
+        let query = supabase.from('tasks').select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
+        
+        if (userRole !== 'Admin' && userTasks.length > 0) {
+            const workflowIds = [...new Set(userTasks.map(t => t.workflow_instance_id))];
+            query = query.in('workflow_instance_id', workflowIds);
+        } else if (userRole !== 'Admin') {
+            // Non-admin with no tasks, fetch nothing
+            processAndSetWorkflows([]);
+            setIsLoading(false);
+            return;
+        }
+
+        const { data, error } = await query;
+        if (error) {
+            toast({ title: 'Error', description: `Failed to fetch tasks: ${error.message}`, variant: 'destructive' });
+        } else {
+            processAndSetWorkflows(data as TaskWithRelations[]);
+        }
+        setIsLoading(false);
+    }, [supabase, currentUserId, userRole, toast, processAndSetWorkflows]);
+
+
+  useEffect(() => {
+    fetchInitialData();
+
+    const channel = supabase.channel('realtime-tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, 
+        async (payload) => {
+            console.log('Real-time task update received:', payload);
+            
+            // Refetch all data to ensure consistency. A more granular update would be more complex
+            // but this ensures the grouping and sorting logic is always correct.
+            await fetchInitialData();
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+            console.log('Subscribed to tasks channel!');
+        }
+        if (err) {
+            console.error('Subscription error:', err);
+            toast({ title: 'Connection Error', description: 'Could not connect to real-time updates.', variant: 'destructive' });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchInitialData, toast]);
+
 
   const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
     startTransition(async () => {
@@ -188,7 +343,7 @@ export function DashboardClient({ myWorkflows, otherWorkflows, userRole, current
                                       {canUpdate ? (
                                           <Select
                                               onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                              disabled={isPending}
+                                              disabled={isTransitioning}
                                           >
                                               <SelectTrigger className="w-[180px]">
                                                 <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
@@ -302,7 +457,7 @@ export function DashboardClient({ myWorkflows, otherWorkflows, userRole, current
                                               {canUpdate ? (
                                                   <Select
                                                       onValueChange={(newStatus: Task['status']) => handleStatusChange(task.id, newStatus)}
-                                                      disabled={isPending}
+                                                      disabled={isTransitioning}
                                                   >
                                                       <SelectTrigger className="w-[180px]">
                                                         <SelectValue placeholder={isReviewStep ? 'Approve / Reject' : 'To Do'} />
@@ -341,6 +496,10 @@ export function DashboardClient({ myWorkflows, otherWorkflows, userRole, current
           ))}
       </div>
     );
+  }
+  
+  if (isLoading) {
+    return <DashboardSkeleton />;
   }
 
   if (myWorkflows.length === 0 && otherWorkflows.length === 0) {
@@ -384,4 +543,21 @@ export function DashboardClient({ myWorkflows, otherWorkflows, userRole, current
       )}
     </div>
   );
+}
+
+function DashboardSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-headline">Task Dashboard</CardTitle>
+        <CardDescription>An overview of all tasks in the system.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </CardContent>
+    </Card>
+  )
 }

@@ -43,7 +43,7 @@ export type Comment = {
   user_id: string;
   content: string;
   created_at: string;
-  profiles: Pick<User, 'name' | 'avatar_url'> | null;
+  profiles: Pick<User, 'id' | 'name' | 'avatar_url'> | null;
 };
 
 export type TaskHistory = {
@@ -53,7 +53,7 @@ export type TaskHistory = {
   previous_status: string | null;
   new_status: string;
   changed_at: string;
-  profiles: Pick<User, 'name' | 'avatar_url'> | null;
+  profiles: Pick<User, 'id' | 'name' | 'avatar_url'> | null;
 };
 
 export type AuditTrailItem =

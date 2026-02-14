@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useTransition, useEffect, useRef } from "react"
+import React, { useState, useTransition, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/hooks/use-toast"
 import { getAuditTrail, addComment, deleteComment } from "./actions"
-import type { Task, AuditTrailItem, User } from "@/lib/types"
+import type { Task, AuditTrailItem, User, Comment, TaskHistory } from "@/lib/types"
 import { MessageSquare, Send, Trash2, ArrowRight } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from "@/components/ui/badge"
+import { createClient } from "@/lib/supabase/client"
 
 interface CommentsSheetProps {
     task: Task;
@@ -30,27 +31,61 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
     const [isDeleting, startDeletingTransition] = useTransition();
     const { toast } = useToast();
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const supabase = createClient();
+
+    const fetchActivity = useCallback(async () => {
+        if (!task.id) return;
+        setIsLoading(true);
+        setError(null);
+        const result = await getAuditTrail(task.id);
+        if (result.data) {
+            setActivity(result.data);
+        } else if (result.error) {
+            setError("Could not load activity.");
+            toast({ title: "Error", description: "Could not load activity.", variant: "destructive" });
+        }
+        setIsLoading(false);
+    }, [task.id, toast]);
+
 
     useEffect(() => {
         if (open) {
-            setIsLoading(true);
-            setError(null);
-            getAuditTrail(task.id)
-                .then(result => {
-                    if (result.data) {
-                        setActivity(result.data);
-                    } else if (result.error) {
-                        setError("Could not load activity.");
-                    }
-                })
-                .finally(() => setIsLoading(false));
+            fetchActivity();
         }
-    }, [open, task.id]);
+    }, [open, fetchActivity]);
 
     useEffect(() => {
-        // Auto-scroll to bottom when new comments are added
+        if (!open) return;
+        
+        const commentChannel = supabase.channel(`comments-for-${task.id}`)
+            .on<Comment>(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'comments', filter: `task_id=eq.${task.id}` },
+                (payload) => {
+                    fetchActivity(); // Refetch all activity for simplicity
+                }
+            )
+            .subscribe();
+
+        const historyChannel = supabase.channel(`history-for-${task.id}`)
+             .on<TaskHistory>(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'task_history', filter: `task_id=eq.${task.id}` },
+                (payload) => {
+                   fetchActivity();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(commentChannel);
+            supabase.removeChannel(historyChannel);
+        };
+    }, [open, task.id, supabase, fetchActivity]);
+
+    useEffect(() => {
         if (scrollAreaRef.current) {
-            scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight });
+            scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
         }
     }, [activity]);
 
@@ -65,14 +100,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 setNewComment("");
-                // Re-fetch activity to show the new one manually
-                setError(null);
-                const updatedActivity = await getAuditTrail(task.id);
-                if (updatedActivity.data) {
-                    setActivity(updatedActivity.data);
-                } else if (updatedActivity.error) {
-                    setError("Could not refresh activity.");
-                }
+                // Real-time listener will handle the update, no manual refetch needed.
             }
         });
     };
@@ -84,11 +112,7 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted", description: result.data?.message });
-                // Re-fetch activity after deletion manually
-                const updatedActivity = await getAuditTrail(task.id);
-                if (updatedActivity.data) {
-                    setActivity(updatedActivity.data);
-                }
+                 // Real-time listener will handle the update, no manual refetch needed.
             }
         });
     };
