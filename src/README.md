@@ -142,8 +142,9 @@ USING (
   )
 );
 
--- ** The following policies are corrected for proper real-time delete **
+-- The following policies are corrected for proper real-time delete
 DROP POLICY IF EXISTS "Users can insert and manage own comments" ON public.comments;
+
 CREATE POLICY "Users can insert their own comments" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own comments" ON public.comments FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own comments, and Admins can delete any" ON public.comments FOR DELETE USING ( (auth.uid() = user_id) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')) );
@@ -162,16 +163,14 @@ USING (
       )
   )
 );
-CREATE POLICY "System can insert history" ON public.task_history FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "System can insert history" ON public.task_history FOR INSERT WITH CHECK (true);
 
 -- 4. UTILITIES
 
 -- Function for users to delete their own account (Self-service)
 create or replace function public.delete_own_user_account()
 returns void language sql security definer as $$
-begin
   delete from auth.users where id = auth.uid();
-end;
 $$;
 
 -- 5. STORAGE BUCKET CONFIGURATION (Informational)
@@ -180,7 +179,7 @@ $$;
 -- 2. Add the following RLS policy for the 'avatars' bucket:
 --    - Allowed to: SELECT, INSERT, UPDATE
 --    - For users: authenticated
---    - Path: (select (auth.uid() = (storage.foldername(name))[1]))
+--    - With check: (select (auth.uid() = (storage.foldername(name))[1]))
 
 -- 6. Enable Realtime
 -- This tells Supabase to broadcast changes on these tables.

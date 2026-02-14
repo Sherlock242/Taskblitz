@@ -54,13 +54,11 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         }
     }, [open, fetchActivity]);
 
-    // This is the real-time listener. It refetches data on any change.
     useEffect(() => {
         if (!open || !task.id) return;
 
         const handleRealtimeUpdate = (payload: any) => {
-            // Refetch activity to ensure UI is in sync with the database
-            fetchActivity(false);
+            fetchActivity(false); // Refetch on any change
         };
 
         const commentsChannel = supabase
@@ -104,35 +102,28 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
 
         startPostingTransition(async () => {
             const originalComment = newComment;
-            setNewComment(""); // Clear input immediately
+            setNewComment(""); // Optimistically clear input
 
             const result = await addComment(task.id, content);
             
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
                 setNewComment(originalComment); // Restore input if error
-            } else {
-                // Let the real-time listener handle the UI update for everyone, including the current user.
             }
+            // The real-time listener will now handle the UI update for ALL users.
         });
     };
 
     const handleDeleteComment = async (commentId: string) => {
         startDeletingTransition(async () => {
-            const originalActivity = [...activity];
-            // Optimistic update: remove the comment from the UI immediately.
-            setActivity(prev => prev.filter(item => item.type !== 'comment' || item.id !== commentId));
-            
             const result = await deleteComment(commentId);
             
             if (result.error) {
-                // If the delete fails, revert the UI and show an error.
-                setActivity(originalActivity);
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted" });
-                 // The real-time listener will handle refetching for all users.
             }
+            // The real-time listener will now handle the UI update for ALL users.
         });
     };
 
