@@ -58,7 +58,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         if (!open || !task.id) return;
 
         const handleRealtimeUpdate = (payload: any) => {
-            fetchActivity(false); // Refetch on any change
+            fetchActivity(false);
         };
 
         const commentsChannel = supabase
@@ -101,16 +101,13 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         if (!content) return;
 
         startPostingTransition(async () => {
-            const originalComment = newComment;
-            setNewComment(""); // Optimistically clear input
-
+            setNewComment("");
             const result = await addComment(task.id, content);
-            
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
-                setNewComment(originalComment); // Restore input if error
+                setNewComment(content);
             }
-            // The real-time listener will now handle the UI update for ALL users.
+            // Real-time listener will handle UI update
         });
     };
 
@@ -122,7 +119,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted" });
-                // The real-time listener will now handle the UI update for ALL users.
+                fetchActivity(false); // Manually refetch to ensure UI updates for the user deleting.
             }
         });
     };

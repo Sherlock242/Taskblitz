@@ -49,21 +49,21 @@ CREATE TABLE public.tasks (
     position INTEGER
 );
 
--- Task History table (Audit Trails) - CORRECTED
+-- Task History table (Audit Trails)
 CREATE TABLE public.task_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, -- Correctly references profiles
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     previous_status TEXT,
     new_status TEXT NOT NULL,
     changed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Comments table - CORRECTED
+-- Comments table
 CREATE TABLE public.comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, -- Correctly references profiles
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -127,7 +127,8 @@ CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (
   EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
 );
 
--- Comments & History Policies
+-- Comments & History Policies (Corrected)
+DROP POLICY IF EXISTS "Comments viewable by involved users" ON public.comments;
 CREATE POLICY "Comments viewable by involved users" ON public.comments FOR SELECT
 USING (
   EXISTS (
@@ -142,11 +143,14 @@ USING (
   )
 );
 
--- The following policies are corrected for proper real-time delete
 DROP POLICY IF EXISTS "Users can insert and manage own comments" ON public.comments;
-
+DROP POLICY IF EXISTS "Users can insert their own comments" ON public.comments;
 CREATE POLICY "Users can insert their own comments" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
 CREATE POLICY "Users can update their own comments" ON public.comments FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own comments, and Admins can delete any" ON public.comments;
 CREATE POLICY "Users can delete their own comments, and Admins can delete any" ON public.comments FOR DELETE USING ( (auth.uid() = user_id) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')) );
 
 
