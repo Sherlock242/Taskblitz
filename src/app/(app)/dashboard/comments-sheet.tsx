@@ -33,9 +33,9 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
 
-    const fetchActivity = useCallback(async () => {
+    const fetchActivity = useCallback(async (showLoadingSpinner = true) => {
         if (!task.id) return;
-        setIsLoading(true);
+        if (showLoadingSpinner) setIsLoading(true);
         setError(null);
         const result = await getAuditTrail(task.id);
         if (result.data) {
@@ -44,35 +44,67 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
             setError(result.error.message);
             toast({ title: "Error", description: `Could not load activity: ${result.error.message}`, variant: "destructive" });
         }
-        setIsLoading(false);
+        if (showLoadingSpinner) setIsLoading(false);
     }, [task.id, toast]);
 
 
     useEffect(() => {
         if (open) {
-            fetchActivity();
+            fetchActivity(true);
         }
     }, [open, fetchActivity]);
 
+    // Real-time subscription to refresh activity without a full loading state
+    useEffect(() => {
+        if (!open || !task.id) return;
+
+        const handleRealtimeUpdate = (payload: any) => {
+            // Refetch data silently in the background
+            fetchActivity(false);
+        };
+
+        const commentsChannel = supabase
+            .channel(`comments-for-task-${task.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `task_id=eq.${task.id}` }, handleRealtimeUpdate)
+            .subscribe();
+            
+        const historyChannel = supabase
+            .channel(`history-for-task-${task.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_history', filter: `task_id=eq.${task.id}` }, handleRealtimeUpdate)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(commentsChannel);
+            supabase.removeChannel(historyChannel);
+        };
+    }, [open, task.id, supabase, fetchActivity]);
+
     useEffect(() => {
         if (scrollAreaRef.current) {
-            scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+            // A slight delay ensures the new item is rendered before we scroll.
+             setTimeout(() => {
+                scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+            }, 100);
         }
     }, [activity]);
 
 
     const handleAddComment = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!newComment.trim()) return;
+        const content = newComment.trim();
+        if (!content) return;
 
         startPostingTransition(async () => {
-            const result = await addComment(task.id, newComment);
+            const originalComment = newComment;
+            setNewComment(""); // Clear input immediately for responsive feel
+
+            const result = await addComment(task.id, content);
+            
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
-            } else {
-                setNewComment("");
-                fetchActivity(); 
-            }
+                setNewComment(originalComment); // Restore input on failure
+            } 
+            // Success is handled by the realtime listener, which calls fetchActivity(false)
         });
     };
 
@@ -82,8 +114,8 @@ export function CommentsSheet({ task, userRole, currentUserId }: CommentsSheetPr
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
-                toast({ title: "Comment Deleted", description: result.data?.message });
-                 fetchActivity();
+                toast({ title: "Comment Deleted" });
+                 // Success is handled by the realtime listener, which calls fetchActivity(false)
             }
         });
     };
