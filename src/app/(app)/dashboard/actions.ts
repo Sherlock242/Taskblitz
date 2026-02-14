@@ -293,17 +293,23 @@ export async function addComment(taskId: string, content: string) {
     return { error: { message: 'Comment cannot be empty.' } };
   }
   
-  const { error } = await supabase.from('comments').insert({
+  const { data, error } = await supabase.from('comments').insert({
     task_id: taskId,
     user_id: user.id,
     content,
-  });
+  }).select('*, profiles(id, name, avatar_url)').single();
 
   if (error) {
     return { error: { message: `Failed to add comment: ${error.message}` } };
   }
 
-  return { data: { message: 'Comment added.' } };
+  const formattedComment = {
+    ...data,
+    type: 'comment' as const,
+    date: data.created_at
+  };
+
+  return { data: formattedComment };
 }
 
 export async function deleteComment(commentId: string) {

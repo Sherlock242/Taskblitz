@@ -55,13 +55,24 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         }
     }, [open, fetchActivity]);
 
-    // Real-time subscription to refresh activity without a full loading state
+    // Real-time subscription to refresh activity from OTHER users
     useEffect(() => {
         if (!open || !task.id) return;
 
         const handleRealtimeUpdate = (payload: any) => {
-            // Refetch data silently in the background
-            fetchActivity(false);
+            if (payload.eventType === 'INSERT') {
+                const newRecord = payload.new;
+                const recordType = payload.table === 'comments' ? 'comment' : 'status_change';
+                const date = payload.table === 'comments' ? newRecord.created_at : newRecord.changed_at;
+                
+                // Avoid adding our own inserts twice
+                if (newRecord.user_id === currentUserId) return;
+                
+                setActivity(prev => [...prev, { ...newRecord, type: recordType, date }]);
+            } else {
+                 // For DELETE and UPDATE, a simple refetch is the most reliable way
+                 fetchActivity(false);
+            }
         };
 
         const commentsChannel = supabase
@@ -78,7 +89,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
             supabase.removeChannel(commentsChannel);
             supabase.removeChannel(historyChannel);
         };
-    }, [open, task.id, supabase, fetchActivity]);
+    }, [open, task.id, supabase, fetchActivity, currentUserId]);
 
     useEffect(() => {
         if (scrollAreaRef.current) {
@@ -104,8 +115,10 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
                 setNewComment(originalComment); // Restore input on failure
-            } 
-            // Success is handled by the realtime listener, which calls fetchActivity(false)
+            } else if (result.data) {
+                // Instant UI update for the current user
+                setActivity(prev => [...prev, result.data]);
+            }
         });
     };
 
@@ -115,8 +128,9 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
+                // Instant UI update for the current user
+                setActivity(prev => prev.filter(item => item.id !== commentId));
                 toast({ title: "Comment Deleted" });
-                 // Success is handled by the realtime listener, which calls fetchActivity(false)
             }
         });
     };
