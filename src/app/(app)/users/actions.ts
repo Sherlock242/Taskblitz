@@ -23,12 +23,20 @@ export async function updateUserRole(userId: string, role: User['role']) {
         return { error: { message: 'Admins cannot change their own role.' } };
     }
 
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
     // Update the user's role in the profiles table
-    const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
+    const { error } = await supabaseAdmin.from('profiles').update({ role }).eq('id', userId);
 
     if (error) {
         return { error: { message: error.message } };
     }
+
+    revalidatePath('/users');
 
     return { data: { message: 'User role updated.' } };
 }
@@ -61,6 +69,8 @@ export async function deleteUser(userId: string) {
     if (error) {
         return { error: { message: `Failed to remove user: ${error.message}` } };
     }
+
+    revalidatePath('/users');
 
     return { data: { message: 'User removed successfully.' } };
 }
