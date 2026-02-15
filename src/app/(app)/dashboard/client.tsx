@@ -201,13 +201,8 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
 
   const handleTaskDelete = () => {
     if (!taskToDelete) return;
-
-    const taskToDeleteId = taskToDelete.id;
-    const taskNameToDelete = taskToDelete.name;
-    
     startTransition(async () => {
-        const result = await deleteTask(taskToDeleteId);
-        setTaskToDelete(null);
+        const result = await deleteTask(taskToDelete.id);
         if (result.error) {
             toast({
                 title: 'Error deleting task',
@@ -217,9 +212,10 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
         } else {
             toast({
                 title: 'Task Deleted',
-                description: `The "${taskNameToDelete}" task has been deleted.`,
+                description: `The "${taskToDelete.name}" task has been deleted.`,
             });
         }
+        setTaskToDelete(null);
     });
   };
 
@@ -237,16 +233,17 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
             return isPrimaryAssignee ? ['In Progress'] : [];
         case 'In Progress':
             if (isPrimaryAssignee) {
-                return task.reviewer_id ? ['Submitted for Review'] : ['Completed'];
+                 const isLastTask = !allTasks.some(t => t.workflow_instance_id === task.workflow_instance_id && t.position! > task.position!);
+                 // If it's the last task, it can be completed directly. Otherwise, it needs review.
+                 return isLastTask ? ['Completed'] : ['Submitted for Review'];
             }
             return [];
         case 'Submitted for Review':
             return isReviewer ? ['Approved', 'Changes Requested'] : [];
         case 'Approved':
-             // If the next task does not exist, the workflow is done, so it's 'Completed'.
-             // This logic is mostly handled on the server, but for UI it's good to be robust.
-             const nextTaskExists = allTasks.some(t => t.workflow_instance_id === task.workflow_instance_id && t.position === (task.position ?? -1) + 1);
-             return !nextTaskExists ? ['Completed'] : [];
+             // This status is now automatically transitioned to 'Completed' on the backend if it's the last task.
+             // There's no manual action for the user to take from 'Approved'.
+             return [];
         default:
             return [];
     }

@@ -31,6 +31,15 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     return { error: { message: `Task not found: ${taskError?.message}` } };
   }
 
+  // Check if this is the last task in the workflow
+  const { data: nextTasksInWorkflow } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('workflow_instance_id', task.workflow_instance_id)
+      .gt('position', task.position);
+
+  const isLastTask = (nextTasksInWorkflow?.length ?? 0) === 0;
+
   const previousStatus = task.status;
 
   let updatePayload: Partial<Task> = {
@@ -50,11 +59,11 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     isValidTransition = true;
     updatePayload.status = 'In Progress';
   }
-  else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee && task.reviewer_id) {
+  else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee && !isLastTask) {
     isValidTransition = true;
     updatePayload.status = 'Submitted for Review';
   }
-  else if (newStatus === 'Completed' && task.status === 'In Progress' && isPrimaryAssignee && !task.reviewer_id) {
+  else if (newStatus === 'Completed' && task.status === 'In Progress' && isPrimaryAssignee && isLastTask) {
     isValidTransition = true;
     updatePayload.status = 'Completed';
   }
@@ -95,6 +104,9 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
         if (updateNextError) {
             return { error: { message: `Failed to activate next task: ${updateNextError.message}` } };
         }
+    } else {
+        // This is the last task in the workflow, and it has just been approved, so it is complete.
+        updatePayload.status = 'Completed';
     }
   }
   
