@@ -15,12 +15,11 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 
 -- Profiles table (linked to auth.users)
 CREATE TABLE public.profiles (
-    id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT,
     email TEXT,
     avatar_url TEXT,
-    role TEXT DEFAULT 'Member',
-    PRIMARY KEY (id)
+    role TEXT DEFAULT 'Member'
 );
 
 -- Templates table
@@ -69,6 +68,16 @@ CREATE TABLE public.comments (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- PERFORMANCE INDEXES TO FIX AUTH RLS WARNINGS
+CREATE INDEX IF NOT EXISTS tasks_user_id_idx ON public.tasks(user_id);
+CREATE INDEX IF NOT EXISTS tasks_primary_assignee_id_idx ON public.tasks(primary_assignee_id);
+CREATE INDEX IF NOT EXISTS tasks_reviewer_id_idx ON public.tasks(reviewer_id);
+CREATE INDEX IF NOT EXISTS comments_task_id_idx ON public.comments(task_id);
+CREATE INDEX IF NOT EXISTS comments_user_id_idx ON public.comments(user_id);
+CREATE INDEX IF NOT EXISTS task_history_task_id_idx ON public.task_history(task_id);
+CREATE INDEX IF NOT EXISTS task_history_user_id_idx ON public.task_history(user_id);
+
+
 -- 2. AUTHENTICATION & PROFILE TRIGGERS
 
 -- Function to automatically create a profile when a new user signs up
@@ -107,6 +116,9 @@ DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profi
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Templates viewable by authenticated" ON public.templates;
 DROP POLICY IF EXISTS "Admins manage templates" ON public.templates;
+DROP POLICY IF EXISTS "Admins can create templates" ON public.templates;
+DROP POLICY IF EXISTS "Admins can update templates" ON public.templates;
+DROP POLICY IF EXISTS "Admins can delete templates" ON public.templates;
 DROP POLICY IF EXISTS "Users view involved tasks" ON public.tasks;
 DROP POLICY IF EXISTS "Authenticated can insert tasks" ON public.tasks;
 DROP POLICY IF EXISTS "Involved can update tasks" ON public.tasks;
@@ -118,32 +130,36 @@ DROP POLICY IF EXISTS "Users can delete their own comments, and Admins can delet
 DROP POLICY IF EXISTS "History viewable by involved users" ON public.task_history;
 DROP POLICY IF EXISTS "System can insert history" ON public.task_history;
 
+-- Helper function to check if user is an Admin
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin');
+$$ LANGUAGE sql SECURITY DEFINER;
+
 -- Profiles Policies
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- Templates Policies
+-- Templates Policies (REFACTORED to prevent multiple permissive policies warning)
 CREATE POLICY "Templates viewable by authenticated" ON public.templates FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Admins manage templates" ON public.templates FOR ALL USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
-);
+CREATE POLICY "Admins can create templates" ON public.templates FOR INSERT WITH CHECK (public.is_admin());
+CREATE POLICY "Admins can update templates" ON public.templates FOR UPDATE USING (public.is_admin());
+CREATE POLICY "Admins can delete templates" ON public.templates FOR DELETE USING (public.is_admin());
 
 -- Tasks Policies
 CREATE POLICY "Users view involved tasks" ON public.tasks FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
+  public.is_admin() OR
   primary_assignee_id = auth.uid() OR 
   reviewer_id = auth.uid() OR
   user_id = auth.uid()
 );
 CREATE POLICY "Authenticated can insert tasks" ON public.tasks FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Involved can update tasks" ON public.tasks FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
+  public.is_admin() OR
   primary_assignee_id = auth.uid() OR
   reviewer_id = auth.uid()
 );
-CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (
-  EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')
-);
+CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (public.is_admin());
 
 -- Comments & History Policies
 CREATE POLICY "Comments viewable by involved users" ON public.comments FOR SELECT
@@ -152,7 +168,7 @@ USING (
     SELECT 1 FROM public.tasks
     WHERE
       tasks.id = comments.task_id AND (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
+        public.is_admin() OR
         tasks.primary_assignee_id = auth.uid() OR
         tasks.reviewer_id = auth.uid() OR
         tasks.user_id = auth.uid()
@@ -162,7 +178,7 @@ USING (
 
 CREATE POLICY "Users can insert their own comments" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own comments" ON public.comments FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own comments, and Admins can delete any" ON public.comments FOR DELETE USING ( (auth.uid() = user_id) OR (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin')) );
+CREATE POLICY "Users can delete their own comments, and Admins can delete any" ON public.comments FOR DELETE USING ( (auth.uid() = user_id) OR public.is_admin() );
 
 CREATE POLICY "History viewable by involved users" ON public.task_history FOR SELECT
 USING (
@@ -170,7 +186,7 @@ USING (
     SELECT 1 FROM public.tasks
     WHERE
       tasks.id = task_history.task_id AND (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin') OR
+        public.is_admin() OR
         tasks.primary_assignee_id = auth.uid() OR
         tasks.reviewer_id = auth.uid() OR
         tasks.user_id = auth.uid()
