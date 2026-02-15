@@ -185,13 +185,13 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    className="h-7 w-7 text-destructive hover:text-destructive/90"
                                                     onClick={() => handleDeleteComment(item.id)}
                                                     disabled={isDeleting}
                                                     aria-label="Delete comment"
                                                     onPointerDown={(e) => e.stopPropagation()}
                                                 >
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                    <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                         </div>
