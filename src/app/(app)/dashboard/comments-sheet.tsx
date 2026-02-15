@@ -126,6 +126,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
+                setActivity(prevActivity => prevActivity.filter(item => item.id !== commentId));
                 toast({ title: "Comment Deleted" });
             }
         });
@@ -241,5 +242,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         </Dialog>
     );
 }
+
+    
 
     
