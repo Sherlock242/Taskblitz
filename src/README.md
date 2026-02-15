@@ -80,21 +80,21 @@ CREATE INDEX IF NOT EXISTS task_history_user_id_idx ON public.task_history(user_
 
 -- 2. AUTHENTICATION & PROFILE TRIGGERS
 
--- Function to automatically create a profile when a new user signs up
+-- Function to automatically create a profile when a new user signs up (SECURITY HARDENED)
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
   insert into public.profiles (id, name, email, avatar_url, role)
   values (
-    new.id, 
-    coalesce(new.raw_user_meta_data->>'full_name', 'New User'), 
-    new.email, 
-    new.raw_user_meta_data->>'avatar_url', 
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', 'New User'),
+    new.email,
+    new.raw_user_meta_data->>'avatar_url',
     coalesce(new.raw_user_meta_data->>'role', 'Member')
   );
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- Trigger the profile creation function
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -130,11 +130,11 @@ DROP POLICY IF EXISTS "Users can delete their own comments, and Admins can delet
 DROP POLICY IF EXISTS "History viewable by involved users" ON public.task_history;
 DROP POLICY IF EXISTS "System can insert history" ON public.task_history;
 
--- Helper function to check if user is an Admin
+-- Helper function to check if user is an Admin (SECURITY HARDENED)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin');
-$$ LANGUAGE sql SECURITY DEFINER;
+$$ LANGUAGE sql SECURITY DEFINER set search_path = '';
 
 -- Profiles Policies
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
@@ -149,7 +149,7 @@ CREATE POLICY "Admins can delete templates" ON public.templates FOR DELETE USING
 -- Tasks Policies
 CREATE POLICY "Users view involved tasks" ON public.tasks FOR SELECT USING (
   public.is_admin() OR
-  primary_assignee_id = auth.uid() OR 
+  primary_assignee_id = auth.uid() OR
   reviewer_id = auth.uid() OR
   user_id = auth.uid()
 );
@@ -193,13 +193,15 @@ USING (
       )
   )
 );
-CREATE POLICY "System can insert history" ON public.task_history FOR INSERT WITH CHECK (true);
+
+-- SECURITY FIX: Block all client-side inserts into the history table.
+CREATE POLICY "System can insert history" ON public.task_history FOR INSERT WITH CHECK (false);
 
 -- 4. UTILITIES
 
--- Function for users to delete their own account (Self-service)
+-- Function for users to delete their own account (Self-service & SECURITY HARDENED)
 create or replace function public.delete_own_user_account()
-returns void language sql security definer as $$
+returns void language sql security definer set search_path = '' as $$
   delete from auth.users where id = auth.uid();
 $$;
 
