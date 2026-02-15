@@ -68,10 +68,12 @@ CREATE TABLE public.comments (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- PERFORMANCE INDEXES TO FIX AUTH RLS WARNINGS
+-- PERFORMANCE INDEXES TO FIX ALL AUTH RLS & PERFORMANCE WARNINGS
 CREATE INDEX IF NOT EXISTS tasks_user_id_idx ON public.tasks(user_id);
 CREATE INDEX IF NOT EXISTS tasks_primary_assignee_id_idx ON public.tasks(primary_assignee_id);
 CREATE INDEX IF NOT EXISTS tasks_reviewer_id_idx ON public.tasks(reviewer_id);
+CREATE INDEX IF NOT EXISTS tasks_template_id_idx ON public.tasks(template_id);
+CREATE INDEX IF NOT EXISTS tasks_assigned_by_idx ON public.tasks(assigned_by);
 CREATE INDEX IF NOT EXISTS comments_task_id_idx ON public.comments(task_id);
 CREATE INDEX IF NOT EXISTS comments_user_id_idx ON public.comments(user_id);
 CREATE INDEX IF NOT EXISTS task_history_task_id_idx ON public.task_history(task_id);
