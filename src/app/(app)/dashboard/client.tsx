@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useTransition, useEffect, useState, useCallback } from 'react';
@@ -139,6 +138,10 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
     };
   }, [supabase, toast, router]);
 
+    useEffect(() => {
+        setAllTasks(initialTasks);
+    }, [initialTasks]);
+
 
     useEffect(() => {
         setIsLoading(true);
@@ -188,18 +191,10 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
     }, [allTasks, userRole, currentUserId, groupWorkflows]);
 
   const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
-    const originalTasks = [...allTasks];
-    setAllTasks(currentTasks => 
-        currentTasks.map(task => 
-            task.id === taskId ? { ...task, status: newStatus, updated_at: new Date().toISOString() } : task
-        )
-    );
-
     startTransition(async () => {
       const { error } = await updateTaskStatus(taskId, newStatus);
       if (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        setAllTasks(originalTasks);
       }
     });
   };
@@ -209,22 +204,16 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
 
     const taskToDeleteId = taskToDelete.id;
     const taskNameToDelete = taskToDelete.name;
-    const originalTasks = [...allTasks];
-
-    // Optimistic update
-    setAllTasks(currentTasks => currentTasks.filter(t => t.id !== taskToDeleteId));
-    setTaskToDelete(null);
     
     startTransition(async () => {
         const result = await deleteTask(taskToDeleteId);
+        setTaskToDelete(null);
         if (result.error) {
             toast({
                 title: 'Error deleting task',
                 description: result.error.message,
                 variant: 'destructive',
             });
-            // Revert on error
-            setAllTasks(originalTasks);
         } else {
             toast({
                 title: 'Task Deleted',
@@ -622,5 +611,3 @@ function DashboardSkeleton() {
     </Card>
   )
 }
-
-    
