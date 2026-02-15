@@ -188,32 +188,49 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
     }, [allTasks, userRole, currentUserId, groupWorkflows]);
 
   const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
+    const originalTasks = [...allTasks];
+    setAllTasks(currentTasks => 
+        currentTasks.map(task => 
+            task.id === taskId ? { ...task, status: newStatus, updated_at: new Date().toISOString() } : task
+        )
+    );
+
     startTransition(async () => {
       const { error } = await updateTaskStatus(taskId, newStatus);
       if (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        setAllTasks(originalTasks);
       }
     });
   };
 
   const handleTaskDelete = () => {
     if (!taskToDelete) return;
+
+    const taskToDeleteId = taskToDelete.id;
+    const taskNameToDelete = taskToDelete.name;
+    const originalTasks = [...allTasks];
+
+    // Optimistic update
+    setAllTasks(currentTasks => currentTasks.filter(t => t.id !== taskToDeleteId));
+    setTaskToDelete(null);
     
     startTransition(async () => {
-        const result = await deleteTask(taskToDelete.id);
+        const result = await deleteTask(taskToDeleteId);
         if (result.error) {
             toast({
                 title: 'Error deleting task',
                 description: result.error.message,
                 variant: 'destructive',
             });
+            // Revert on error
+            setAllTasks(originalTasks);
         } else {
             toast({
                 title: 'Task Deleted',
-                description: `The "${taskToDelete.name}" task has been deleted.`,
+                description: `The "${taskNameToDelete}" task has been deleted.`,
             });
         }
-        setTaskToDelete(null);
     });
   };
 
@@ -236,6 +253,11 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
             return [];
         case 'Submitted for Review':
             return isReviewer ? ['Approved', 'Changes Requested'] : [];
+        case 'Approved':
+             // If the next task does not exist, the workflow is done, so it's 'Completed'.
+             // This logic is mostly handled on the server, but for UI it's good to be robust.
+             const nextTaskExists = allTasks.some(t => t.workflow_instance_id === task.workflow_instance_id && t.position === (task.position ?? -1) + 1);
+             return !nextTaskExists ? ['Completed'] : [];
         default:
             return [];
     }
@@ -600,3 +622,5 @@ function DashboardSkeleton() {
     </Card>
   )
 }
+
+    

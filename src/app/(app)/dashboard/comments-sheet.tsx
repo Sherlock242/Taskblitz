@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useTransition, useEffect, useRef, useCallback } from "react"
@@ -108,22 +109,30 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         const content = newComment.trim();
         if (!content) return;
 
+        setNewComment(""); // Clear input immediately for responsiveness
+
         startPostingTransition(async () => {
             const result = await addComment(task.id, content);
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
-            } else {
-                setNewComment("");
+                setNewComment(content); // Restore content on error
+            } else if (result.data) {
+                // The real-time subscription also updates the list, but this provides instant feedback.
+                setActivity(prev => [...prev, result.data!]);
             }
         });
     };
 
     const handleDeleteComment = (commentId: string) => {
+        const originalActivity = [...activity];
+        setActivity(prev => prev.filter(item => item.id !== commentId)); // Optimistic delete
+
         startDeletingTransition(async () => {
             const result = await deleteComment(commentId);
             
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
+                setActivity(originalActivity); // Revert on error
             } else {
                 toast({ title: "Comment Deleted" });
             }
@@ -240,3 +249,5 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         </Dialog>
     );
 }
+
+    
