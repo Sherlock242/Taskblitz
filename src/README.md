@@ -1,6 +1,6 @@
 # Database Setup (SQL)
 
-Copy and run this entire script in your Supabase SQL Editor to initialize the database for Task Blitz. This script sets up the user profiles (linked to Auth), task templates, active tasks, audit history, and collaboration comments.
+Copy and run this entire script in your Supabase SQL Editor to initialize the database for Task Blitz. This script sets up the user profiles (linked to Auth), task templates, active tasks, audit history, and collaboration comments. This script is idempotent, meaning it is safe to run multiple times.
 
 ```sql
 -- DANGER: This script deletes existing tables before recreating them.
