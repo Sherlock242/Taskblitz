@@ -132,7 +132,7 @@ DROP POLICY IF EXISTS "Users can delete their own comments, and Admins can delet
 DROP POLICY IF EXISTS "History viewable by involved users" ON public.task_history;
 DROP POLICY IF EXISTS "System can insert history" ON public.task_history;
 
--- Helper function to check if user is an Admin (SECURITY HARDENED)
+-- Helper function to check if user is an Admin (SECURITY HARDENED & PERFORMANT)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin');
@@ -142,13 +142,13 @@ $$ LANGUAGE sql SECURITY DEFINER set search_path = '';
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- Templates Policies (REFACTORED to prevent multiple permissive policies warning)
+-- Templates Policies (REFACTORED to prevent "multiple permissive policies" warning)
 CREATE POLICY "Templates viewable by authenticated" ON public.templates FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Admins can create templates" ON public.templates FOR INSERT WITH CHECK (public.is_admin());
 CREATE POLICY "Admins can update templates" ON public.templates FOR UPDATE USING (public.is_admin());
 CREATE POLICY "Admins can delete templates" ON public.templates FOR DELETE USING (public.is_admin());
 
--- Tasks Policies
+-- Tasks Policies (OPTIMIZED with is_admin())
 CREATE POLICY "Users view involved tasks" ON public.tasks FOR SELECT USING (
   public.is_admin() OR
   primary_assignee_id = auth.uid() OR
@@ -163,7 +163,7 @@ CREATE POLICY "Involved can update tasks" ON public.tasks FOR UPDATE USING (
 );
 CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (public.is_admin());
 
--- Comments & History Policies
+-- Comments & History Policies (OPTIMIZED with is_admin() and EXISTS)
 CREATE POLICY "Comments viewable by involved users" ON public.comments FOR SELECT
 USING (
   EXISTS (
