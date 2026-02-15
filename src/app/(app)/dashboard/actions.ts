@@ -33,25 +33,6 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
 
   const previousStatus = task.status;
 
-  // Check if this is the last task in the workflow
-  const supabaseAdminForCheck = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-  const { data: workflowTasks, error: workflowError } = await supabaseAdminForCheck
-    .from('tasks')
-    .select('position')
-    .eq('workflow_instance_id', task.workflow_instance_id);
-    
-  if (workflowError) {
-      return { error: { message: `Could not verify workflow: ${workflowError.message}` } };
-  }
-  
-  const maxPosition = Math.max(...(workflowTasks?.map(t => t.position ?? -1) || [-1]));
-  const isLastTask = task.position === maxPosition;
-
-
   let updatePayload: Partial<Task> = {
     updated_at: new Date().toISOString(),
   };
@@ -69,14 +50,11 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     isValidTransition = true;
     updatePayload.status = 'In Progress';
   }
-  else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee && !isLastTask) {
-    if (!task.reviewer_id) {
-      return { error: { message: 'No reviewer has been designated for this workflow.' } };
-    }
+  else if (newStatus === 'Submitted for Review' && task.status === 'In Progress' && isPrimaryAssignee && task.reviewer_id) {
     isValidTransition = true;
     updatePayload.status = 'Submitted for Review';
   }
-  else if (newStatus === 'Completed' && task.status === 'In Progress' && isPrimaryAssignee && isLastTask) {
+  else if (newStatus === 'Completed' && task.status === 'In Progress' && isPrimaryAssignee && !task.reviewer_id) {
     isValidTransition = true;
     updatePayload.status = 'Completed';
   }
@@ -117,9 +95,6 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
         if (updateNextError) {
             return { error: { message: `Failed to activate next task: ${updateNextError.message}` } };
         }
-    } else {
-        // This is the last task, so the workflow is completed
-        updatePayload.status = 'Completed';
     }
   }
   
@@ -151,6 +126,7 @@ export async function updateTaskStatus(taskId: string, newStatus: Task['status']
     }
   }
 
+  revalidatePath('/dashboard');
   return { error: null };
 }
 
@@ -178,6 +154,7 @@ export async function deleteTask(taskId: string) {
     return { error: { message: `Failed to delete task: ${error.message}` } };
   }
 
+  revalidatePath('/dashboard');
   return { data: { message: 'Task deleted successfully.' } };
 }
 
@@ -304,6 +281,7 @@ export async function addComment(taskId: string, content: string) {
     return { error: { message: `Failed to add comment: ${insertError.message}` } };
   }
 
+  revalidatePath('/dashboard');
   const formattedComment = {
     ...commentData,
     type: 'comment' as const,
@@ -346,5 +324,6 @@ export async function deleteComment(commentId: string) {
     return { error: { message: `Failed to delete comment: ${error.message}` } };
   }
 
+  revalidatePath('/dashboard');
   return { data: { message: 'Comment deleted.' } };
 }

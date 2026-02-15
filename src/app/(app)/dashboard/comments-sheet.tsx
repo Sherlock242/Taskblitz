@@ -13,6 +13,7 @@ import { Send, Trash2, ArrowRight } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 interface CommentsSheetProps {
     task: Task;
@@ -32,6 +33,8 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
     const { toast } = useToast();
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
+    const router = useRouter();
+
 
     const fetchActivity = useCallback(async (showLoadingSpinner = true) => {
         if (!task.id) return;
@@ -58,7 +61,8 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         if (!open || !task.id) return;
 
         const handleRealtimeUpdate = (payload: any) => {
-            fetchActivity(false);
+            console.log('Real-time activity update received, refreshing...', payload);
+            fetchActivity(false); // Refetch activity without showing a spinner
         };
 
         const commentsChannel = supabase
@@ -73,7 +77,11 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
             
         const historyChannel = supabase
             .channel(`history-for-task-${task.id}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_history', filter: `task_id=eq.${task.id}` }, handleRealtimeUpdate)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_history', filter: `task_id=eq.${task.id}` }, (payload) => {
+                handleRealtimeUpdate(payload);
+                // Also refresh the main dashboard data if a status changes
+                router.refresh();
+            })
              .subscribe((status, err) => {
                 if (err) {
                     console.error("Real-time history subscription error:", err);
@@ -84,7 +92,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
             supabase.removeChannel(commentsChannel);
             supabase.removeChannel(historyChannel);
         };
-    }, [open, task.id, supabase, fetchActivity, toast]);
+    }, [open, task.id, supabase, fetchActivity, toast, router]);
 
     useEffect(() => {
         if (scrollAreaRef.current) {
@@ -101,13 +109,12 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
         if (!content) return;
 
         startPostingTransition(async () => {
-            setNewComment("");
             const result = await addComment(task.id, content);
             if (result.error) {
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
-                setNewComment(content);
+            } else {
+                setNewComment("");
             }
-            // Real-time listener will handle UI update
         });
     };
 
@@ -119,7 +126,6 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
                 toast({ title: "Error", description: result.error.message, variant: "destructive" });
             } else {
                 toast({ title: "Comment Deleted" });
-                fetchActivity(false); // Manually refetch to ensure UI updates for the user deleting.
             }
         });
     };
@@ -177,7 +183,7 @@ export function CommentsSheet({ task, userRole, currentUserId, open, onOpenChang
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7"
+                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                                                     onClick={() => handleDeleteComment(item.id)}
                                                     disabled={isDeleting}
                                                     aria-label="Delete comment"

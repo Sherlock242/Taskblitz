@@ -20,6 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useRouter } from 'next/navigation';
 
 
 const getStatusVariant = (status: Task['status']): 'default' | 'secondary' | 'outline' | 'destructive' => {
@@ -59,6 +60,7 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [isTransitioning, startTransition] = useTransition();
+  const router = useRouter();
 
   const [allTasks, setAllTasks] = useState<TaskWithRelations[]>(initialTasks);
   const [myWorkflows, setMyWorkflows] = useState<any[]>([]);
@@ -106,22 +108,6 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
       }
       return Object.values(groups).sort((a, b) => (b as any).lastActivity.getTime() - (a as any).lastActivity.getTime());
   }, []);
-
-  const fetchAllTasks = useCallback(async () => {
-    const { data: tasks, error: tasksError } = await supabase
-      .from('tasks')
-      .select('*, profiles!user_id(name, avatar_url), assigner:profiles!assigned_by(name, avatar_url), primary_assignee:profiles!primary_assignee_id(name, avatar_url), reviewer:profiles!reviewer_id(name, avatar_url), templates(name, description)');
-
-    if (tasksError) {
-      toast({
-        title: 'Error refreshing tasks',
-        description: tasksError.message,
-        variant: 'destructive',
-      });
-    } else if (tasks) {
-      setAllTasks(tasks as TaskWithRelations[]);
-    }
-  }, [supabase, toast]);
     
   useEffect(() => {
     const channel = supabase
@@ -130,8 +116,8 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
         (payload) => {
-          console.log('Real-time task update received, refetching all tasks:', payload);
-          fetchAllTasks();
+          console.log('Real-time task update received, refreshing page state...', payload);
+          router.refresh();
         }
       )
       .subscribe((status, err) => {
@@ -151,7 +137,7 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, toast, fetchAllTasks]);
+  }, [supabase, toast, router]);
 
 
     useEffect(() => {
@@ -202,14 +188,9 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
     }, [allTasks, userRole, currentUserId, groupWorkflows]);
 
   const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
-    const originalTasks = allTasks;
-    const newTasks = allTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
-    setAllTasks(newTasks);
-
     startTransition(async () => {
       const { error } = await updateTaskStatus(taskId, newStatus);
       if (error) {
-        setAllTasks(originalTasks);
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       }
     });
@@ -218,17 +199,12 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
   const handleTaskDelete = () => {
     if (!taskToDelete) return;
     
-    const originalTasks = [...allTasks];
-    setAllTasks(currentTasks => currentTasks.filter(t => t.id !== taskToDelete.id));
-    setTaskToDelete(null);
-
     startTransition(async () => {
-        const { error } = await deleteTask(taskToDelete.id);
-        if (error) {
-            setAllTasks(originalTasks);
+        const result = await deleteTask(taskToDelete.id);
+        if (result.error) {
             toast({
                 title: 'Error deleting task',
-                description: error.message,
+                description: result.error.message,
                 variant: 'destructive',
             });
         } else {
@@ -237,10 +213,11 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
                 description: `The "${taskToDelete.name}" task has been deleted.`,
             });
         }
+        setTaskToDelete(null);
     });
   };
 
-  const getNextStatuses = (task: TaskWithRelations, isLastTask: boolean): Array<Task['status']> => {
+  const getNextStatuses = (task: TaskWithRelations): Array<Task['status']> => {
     const allStatuses: Array<Task['status']> = ['Pending', 'Assigned', 'In Progress', 'Submitted for Review', 'Changes Requested', 'Approved', 'Completed'];
     if (userRole === 'Admin') {
         return allStatuses.filter(s => s !== task.status);
@@ -254,7 +231,7 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
             return isPrimaryAssignee ? ['In Progress'] : [];
         case 'In Progress':
             if (isPrimaryAssignee) {
-                return isLastTask ? ['Completed'] : ['Submitted for Review'];
+                return task.reviewer_id ? ['Submitted for Review'] : ['Completed'];
             }
             return [];
         case 'Submitted for Review':
@@ -325,10 +302,9 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4 p-4 pt-0">
                       {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
-                          const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
-                          const nextStatuses = getNextStatuses(task, isLastTask);
+                          const nextStatuses = getNextStatuses(task);
                           const isAdmin = userRole === 'Admin';
-                          const canUpdate = isAdmin || (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
+                          const canUpdate = isAdmin || (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed' && task.status !== 'Approved');
                           const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                           const isReviewStep = task.status === 'Submitted for Review';
 
@@ -449,10 +425,9 @@ export function DashboardClient({ initialTasks, userRole, currentUserId }: Dashb
                           </TableHeader>
                           <TableBody>
                               {(group.displayTasks || group.tasks).map((task: TaskWithRelations) => {
-                                  const isLastTask = group.tasks.length > 0 && task.id === group.tasks[group.tasks.length - 1].id;
-                                  const nextStatuses = getNextStatuses(task, isLastTask);
+                                  const nextStatuses = getNextStatuses(task);
                                   const isAdmin = userRole === 'Admin';
-                                  const canUpdate = isAdmin || (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed');
+                                  const canUpdate = isAdmin || (!isReadOnly && nextStatuses.length > 0 && task.status !== 'Completed' && task.status !== 'Approved');
                                   const displayStatus = task.status === 'Assigned' || task.status === 'Changes Requested' ? 'To Do' : task.status;
                                   const isReviewStep = task.status === 'Submitted for Review';
 
