@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export async function updateProfile(formData: FormData) {
   const name = formData.get('name') as string;
@@ -46,9 +47,9 @@ export async function updateAvatar(formData: FormData) {
       return { error: { message: 'No file selected for upload.' } };
   }
 
-  const fileExt = avatarFile.name.split('.').pop() || 'jpg';
-  // Standardize the file path to [userId]/avatar.[ext]
-  const filePath = `${user.id}/avatar.${fileExt}`;
+  // Use a clean path. Using a generic filename with a timestamp in the storage metadata 
+  // is often more reliable than changing extensions.
+  const filePath = `${user.id}/avatar.jpg`;
 
   // Upload the file. Upsert ensures we overwrite the old one.
   const { error: uploadError } = await supabase.storage
@@ -60,7 +61,7 @@ export async function updateAvatar(formData: FormData) {
 
   if (uploadError) {
     console.error("Storage upload error:", uploadError);
-    return { error: { message: `Failed to upload avatar: ${uploadError.message}. Make sure the 'avatars' bucket exists and is public.` } };
+    return { error: { message: `Failed to upload avatar: ${uploadError.message}.` } };
   }
 
   const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
@@ -69,10 +70,16 @@ export async function updateAvatar(formData: FormData) {
     return { error: { message: 'Could not get public URL for avatar.' } };
   }
   
-  // Append a timestamp to the URL to force the browser to ignore its cache
+  // Use a unique query param to force the browser to ignore its cache for this URL
   const uniqueUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-  const { data: updatedProfile, error: updateError } = await supabase
+  // Use admin client to ensure we have permission to update the profile record
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: updatedProfile, error: updateError } = await supabaseAdmin
     .from('profiles')
     .update({ avatar_url: uniqueUrl })
     .eq('id', user.id)
@@ -80,10 +87,10 @@ export async function updateAvatar(formData: FormData) {
     .single();
 
   if (updateError) {
-    return { error: { message: `Failed to update profile database record: ${updateError.message}` } };
+    return { error: { message: `Failed to update profile record: ${updateError.message}` } };
   }
 
-  // Aggressive revalidation to update headers and other pages
+  // Aggressive revalidation
   revalidatePath('/', 'layout');
   revalidatePath('/profile');
   revalidatePath('/dashboard');

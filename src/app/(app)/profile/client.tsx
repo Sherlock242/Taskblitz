@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useRef, useTransition, useState, useEffect } from 'react';
+import { useRef, useTransition, useState } from 'react';
 import { updateAvatar, updatePassword, deleteAccount, updateProfile } from './actions';
 import { useRouter } from 'next/navigation';
 import {
@@ -36,11 +36,6 @@ export function ProfileClient({ user }: { user: User }) {
     // Maintain local state for the avatar URL to ensure immediate updates
     const [avatarUrl, setAvatarUrl] = useState(user.avatar_url);
 
-    // Sync state if props change (e.g., from server revalidation)
-    useEffect(() => {
-        setAvatarUrl(user.avatar_url);
-    }, [user.avatar_url]);
-
     const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -54,9 +49,9 @@ export function ProfileClient({ user }: { user: User }) {
                 toast({ title: 'Error uploading avatar', description: result.error.message, variant: 'destructive' });
             } else if (result.data) {
                 toast({ title: 'Avatar Updated!', description: 'Your new avatar has been uploaded.' });
-                // Update local state immediately
+                // Update local state immediately with a unique timestamp to bust cache
                 setAvatarUrl(result.data.avatar_url);
-                // Trigger a background refresh to sync other components
+                // Trigger a refresh to sync with other components
                 router.refresh();
             }
             // Reset file input
@@ -96,6 +91,10 @@ export function ProfileClient({ user }: { user: User }) {
         });
     };
 
+    const userInitials = user.name
+        ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        : 'U';
+
     return (
         <div className="grid gap-6">
             {/* Profile Card */}
@@ -107,10 +106,11 @@ export function ProfileClient({ user }: { user: User }) {
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-center gap-6">
-                            <Avatar className="h-24 w-24 border">
+                            {/* Using a key here forces the entire Avatar component to re-mount when the URL changes */}
+                            <Avatar key={avatarUrl} className="h-24 w-24 border">
                                 <AvatarImage src={avatarUrl} alt={user.name} />
                                 <AvatarFallback className="text-xl bg-primary/10 text-primary">
-                                    {user.name?.slice(0, 2).toUpperCase()}
+                                    {userInitials}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="grid gap-2 w-full">
