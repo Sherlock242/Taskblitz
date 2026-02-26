@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useRef, useTransition } from 'react';
+import { useRef, useTransition, useState, useEffect } from 'react';
 import { updateAvatar, updatePassword, deleteAccount, updateProfile } from './actions';
 import { useRouter } from 'next/navigation';
 import {
@@ -33,6 +33,14 @@ export function ProfileClient({ user }: { user: User }) {
     const profileFormRef = useRef<HTMLFormElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Maintain local state for the avatar URL to ensure immediate updates
+    const [avatarUrl, setAvatarUrl] = useState(user.avatar_url);
+
+    // Sync state if props change (e.g., from server revalidation)
+    useEffect(() => {
+        setAvatarUrl(user.avatar_url);
+    }, [user.avatar_url]);
+
     const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -44,8 +52,11 @@ export function ProfileClient({ user }: { user: User }) {
             const result = await updateAvatar(formData);
             if (result.error) {
                 toast({ title: 'Error uploading avatar', description: result.error.message, variant: 'destructive' });
-            } else {
+            } else if (result.data) {
                 toast({ title: 'Avatar Updated!', description: 'Your new avatar has been uploaded.' });
+                // Update local state immediately
+                setAvatarUrl(result.data.avatar_url);
+                // Trigger a background refresh to sync other components
                 router.refresh();
             }
             // Reset file input
@@ -81,8 +92,6 @@ export function ProfileClient({ user }: { user: User }) {
 
     const handleDeleteAccount = () => {
         startDeleteTransition(async () => {
-            // This action redirects, so we don't need to handle the result here.
-            // Errors will be caught by Next.js error boundaries.
             await deleteAccount();
         });
     };
@@ -97,16 +106,20 @@ export function ProfileClient({ user }: { user: User }) {
                         <CardDescription>Update your photo and personal details.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center gap-4">
-                            <Avatar className="h-20 w-20">
-                                <AvatarImage src={user.avatar_url} alt={user.name} />
-                                <AvatarFallback>{user.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        <div className="flex items-center gap-6">
+                            <Avatar className="h-24 w-24 border">
+                                <AvatarImage src={avatarUrl} alt={user.name} />
+                                <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                                    {user.name?.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
                             </Avatar>
                             <div className="grid gap-2 w-full">
                                 <Label htmlFor="name">Full Name</Label>
                                 <Input id="name" name="name" defaultValue={user.name} required disabled={isProfilePending} />
-                                <p className="text-sm text-muted-foreground">{user.email}</p>
-                                <p className="text-sm text-muted-foreground capitalize">Role: {user.role}</p>
+                                <div className="flex flex-col gap-1 mt-1">
+                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground/80">Role: {user.role}</p>
+                                </div>
                             </div>
                         </div>
                     </CardContent>

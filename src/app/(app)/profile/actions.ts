@@ -27,6 +27,7 @@ export async function updateProfile(formData: FormData) {
   }
   
   revalidatePath('/', 'layout');
+  revalidatePath('/profile');
 
   return { data: { message: 'Profile updated successfully.' } };
 }
@@ -44,31 +45,33 @@ export async function updateAvatar(formData: FormData) {
       return { error: { message: 'No file selected for upload.' } };
   }
 
-  const fileExt = avatarFile.name.split('.').pop();
-  const filePath = `${user.id}/avatar.${fileExt}`;
+  const fileExt = avatarFile.name.split('.').pop() || 'jpg';
+  // Use a slightly more unique path to help with caching issues
+  const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+
+  // First, clean up old avatars if possible (optional, but good practice)
+  // We'll skip cleanup for now to keep the action fast and simple
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')
     .upload(filePath, avatarFile, {
-      cacheControl: '0', // Disable caching for the upload to ensure immediate availability
-      upsert: true // This will overwrite the file if it already exists
+      cacheControl: '0',
+      upsert: true
     });
 
   if (uploadError) {
     return { error: { message: `Failed to upload avatar: ${uploadError.message}` } };
   }
 
-  // Get public URL for the uploaded file
   const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
   if (!urlData.publicUrl) {
     return { error: { message: 'Could not get public URL for avatar.' } };
   }
   
-  // A cache-busting query parameter is crucial because browsers will cache the old image.
-  const uniqueUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`;
+  const uniqueUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-  const { data, error: updateError } = await supabase
+  const { data: updatedProfile, error: updateError } = await supabase
     .from('profiles')
     .update({ avatar_url: uniqueUrl })
     .eq('id', user.id)
@@ -79,11 +82,13 @@ export async function updateAvatar(formData: FormData) {
     return { error: { message: `Failed to update profile: ${updateError.message}` } };
   }
 
+  // Aggressive revalidation
   revalidatePath('/', 'layout');
+  revalidatePath('/profile');
+  revalidatePath('/dashboard');
 
-  return { data };
+  return { data: updatedProfile };
 }
-
 
 export async function updatePassword(formData: FormData) {
   const password = formData.get('password') as string;
@@ -116,15 +121,12 @@ export async function deleteAccount() {
     return { error: { message: 'You must be logged in to delete your account.' } };
   }
 
-  // This RPC call will trigger the delete_own_user_account function in the database
   const { error } = await supabase.rpc('delete_own_user_account');
 
   if (error) {
     return { error: { message: `Failed to delete account: ${error.message}` } };
   }
   
-  // The rpc call invalidates the user's session, so we sign them out on the client
-  // and redirect them. We don't need to call signOut() here as the session is gone.
   revalidatePath('/');
   redirect('/login?message=Your account has been successfully deleted.');
 }
