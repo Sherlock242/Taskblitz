@@ -28,6 +28,7 @@ export async function updateProfile(formData: FormData) {
   
   revalidatePath('/', 'layout');
   revalidatePath('/profile');
+  revalidatePath('/dashboard');
 
   return { data: { message: 'Profile updated successfully.' } };
 }
@@ -46,12 +47,10 @@ export async function updateAvatar(formData: FormData) {
   }
 
   const fileExt = avatarFile.name.split('.').pop() || 'jpg';
-  // Use a slightly more unique path to help with caching issues
-  const filePath = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+  // Standardize the file path to [userId]/avatar.[ext]
+  const filePath = `${user.id}/avatar.${fileExt}`;
 
-  // First, clean up old avatars if possible (optional, but good practice)
-  // We'll skip cleanup for now to keep the action fast and simple
-
+  // Upload the file. Upsert ensures we overwrite the old one.
   const { error: uploadError } = await supabase.storage
     .from('avatars')
     .upload(filePath, avatarFile, {
@@ -60,7 +59,8 @@ export async function updateAvatar(formData: FormData) {
     });
 
   if (uploadError) {
-    return { error: { message: `Failed to upload avatar: ${uploadError.message}` } };
+    console.error("Storage upload error:", uploadError);
+    return { error: { message: `Failed to upload avatar: ${uploadError.message}. Make sure the 'avatars' bucket exists and is public.` } };
   }
 
   const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
@@ -69,6 +69,7 @@ export async function updateAvatar(formData: FormData) {
     return { error: { message: 'Could not get public URL for avatar.' } };
   }
   
+  // Append a timestamp to the URL to force the browser to ignore its cache
   const uniqueUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
   const { data: updatedProfile, error: updateError } = await supabase
@@ -79,13 +80,14 @@ export async function updateAvatar(formData: FormData) {
     .single();
 
   if (updateError) {
-    return { error: { message: `Failed to update profile: ${updateError.message}` } };
+    return { error: { message: `Failed to update profile database record: ${updateError.message}` } };
   }
 
-  // Aggressive revalidation
+  // Aggressive revalidation to update headers and other pages
   revalidatePath('/', 'layout');
   revalidatePath('/profile');
   revalidatePath('/dashboard');
+  revalidatePath('/users');
 
   return { data: updatedProfile };
 }

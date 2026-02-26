@@ -68,7 +68,7 @@ CREATE TABLE public.comments (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- PERFORMANCE INDEXES TO FIX ALL AUTH RLS & PERFORMANCE WARNINGS
+-- PERFORMANCE INDEXES
 CREATE INDEX IF NOT EXISTS tasks_user_id_idx ON public.tasks(user_id);
 CREATE INDEX IF NOT EXISTS tasks_primary_assignee_id_idx ON public.tasks(primary_assignee_id);
 CREATE INDEX IF NOT EXISTS tasks_reviewer_id_idx ON public.tasks(reviewer_id);
@@ -82,7 +82,7 @@ CREATE INDEX IF NOT EXISTS task_history_user_id_idx ON public.task_history(user_
 
 -- 2. AUTHENTICATION & PROFILE TRIGGERS
 
--- Function to automatically create a profile when a new user signs up (SECURITY HARDENED)
+-- Function to automatically create a profile when a new user signs up
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -104,35 +104,15 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 3. ROW LEVEL SECURITY (RLS) - Idempotent script
+-- 3. ROW LEVEL SECURITY (RLS)
 
--- Enable RLS on all relevant tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_history ENABLE ROW LEVEL SECURITY;
 
--- Clear existing policies to prevent conflicts
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Templates viewable by authenticated" ON public.templates;
-DROP POLICY IF EXISTS "Admins manage templates" ON public.templates;
-DROP POLICY IF EXISTS "Admins can create templates" ON public.templates;
-DROP POLICY IF EXISTS "Admins can update templates" ON public.templates;
-DROP POLICY IF EXISTS "Admins can delete templates" ON public.templates;
-DROP POLICY IF EXISTS "Users view involved tasks" ON public.tasks;
-DROP POLICY IF EXISTS "Authenticated can insert tasks" ON public.tasks;
-DROP POLICY IF EXISTS "Involved can update tasks" ON public.tasks;
-DROP POLICY IF EXISTS "Admins delete tasks" ON public.tasks;
-DROP POLICY IF EXISTS "Comments viewable by involved users" ON public.comments;
-DROP POLICY IF EXISTS "Users can insert their own comments" ON public.comments;
-DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
-DROP POLICY IF EXISTS "Users can delete their own comments, and Admins can delete any" ON public.comments;
-DROP POLICY IF EXISTS "History viewable by involved users" ON public.task_history;
-DROP POLICY IF EXISTS "System can insert history" ON public.task_history;
-
--- Helper function to check if user is an Admin (SECURITY HARDENED & PERFORMANT)
+-- Helper function to check if user is an Admin (Highly performant)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'Admin');
@@ -142,13 +122,13 @@ $$ LANGUAGE sql SECURITY DEFINER set search_path = '';
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- Templates Policies (REFACTORED to prevent "multiple permissive policies" warning)
+-- Templates Policies
 CREATE POLICY "Templates viewable by authenticated" ON public.templates FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Admins can create templates" ON public.templates FOR INSERT WITH CHECK (public.is_admin());
 CREATE POLICY "Admins can update templates" ON public.templates FOR UPDATE USING (public.is_admin());
 CREATE POLICY "Admins can delete templates" ON public.templates FOR DELETE USING (public.is_admin());
 
--- Tasks Policies (OPTIMIZED with is_admin())
+-- Tasks Policies
 CREATE POLICY "Users view involved tasks" ON public.tasks FOR SELECT USING (
   public.is_admin() OR
   primary_assignee_id = auth.uid() OR
@@ -163,7 +143,7 @@ CREATE POLICY "Involved can update tasks" ON public.tasks FOR UPDATE USING (
 );
 CREATE POLICY "Admins delete tasks" ON public.tasks FOR DELETE USING (public.is_admin());
 
--- Comments & History Policies (OPTIMIZED with is_admin() and EXISTS)
+-- Comments Policies
 CREATE POLICY "Comments viewable by involved users" ON public.comments FOR SELECT
 USING (
   EXISTS (
@@ -177,11 +157,11 @@ USING (
       )
   )
 );
-
 CREATE POLICY "Users can insert their own comments" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own comments" ON public.comments FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own comments, and Admins can delete any" ON public.comments FOR DELETE USING ( (auth.uid() = user_id) OR public.is_admin() );
 
+-- History Policies
 CREATE POLICY "History viewable by involved users" ON public.task_history FOR SELECT
 USING (
   EXISTS (
@@ -195,27 +175,55 @@ USING (
       )
   )
 );
-
--- SECURITY FIX: Block all client-side inserts into the history table.
 CREATE POLICY "System can insert history" ON public.task_history FOR INSERT WITH CHECK (false);
 
 -- 4. UTILITIES
-
--- Function for users to delete their own account (Self-service & SECURITY HARDENED)
 create or replace function public.delete_own_user_account()
 returns void language sql security definer set search_path = '' as $$
   delete from auth.users where id = auth.uid();
 $$;
 
--- 5. STORAGE BUCKET CONFIGURATION (Informational)
--- In the Supabase Dashboard -> Storage:
--- 1. Create a public bucket named 'avatars'.
--- 2. Add the following RLS policy for the 'avatars' bucket:
---    - Allowed to: SELECT, INSERT, UPDATE
---    - For users: authenticated
---    - With check: (select (auth.uid() = (storage.foldername(name))[1]))
-
--- 6. Enable Realtime
--- This tells Supabase to broadcast changes on these tables.
+-- 5. Enable Realtime
 alter publication supabase_realtime add table public.comments, public.task_history, public.tasks, public.templates, public.profiles;
+
+-- 6. STORAGE SETUP (RUN THIS TO FIX PROFILE PICTURES)
+-- This section creates the bucket and the necessary RLS policies for storage.
+
+-- Ensure the 'avatars' bucket exists and is public
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Allow anyone to see avatars (Public access)
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
+CREATE POLICY "Avatar images are publicly accessible"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+
+-- Allow authenticated users to upload to their own folder
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
+CREATE POLICY "Users can upload their own avatar"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'avatars' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow users to update their own avatar
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
+CREATE POLICY "Users can update their own avatar"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'avatars' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow users to delete their own avatar
+DROP POLICY IF EXISTS "Users can delete their own avatar" ON storage.objects;
+CREATE POLICY "Users can delete their own avatar"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'avatars' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
 ```
