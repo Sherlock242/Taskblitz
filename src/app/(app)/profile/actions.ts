@@ -26,8 +26,7 @@ export async function updateProfile(formData: FormData) {
     return { error: { message: `Failed to update profile: ${error.message}` } };
   }
   
-  revalidatePath('/profile');
-  revalidatePath('/(app)/layout', 'layout'); // Revalidate layout to update UserNav
+  revalidatePath('/', 'layout');
 
   return { data: { message: 'Profile updated successfully.' } };
 }
@@ -51,7 +50,7 @@ export async function updateAvatar(formData: FormData) {
   const { error: uploadError } = await supabase.storage
     .from('avatars')
     .upload(filePath, avatarFile, {
-      cacheControl: '3600',
+      cacheControl: '0', // Disable caching for the upload to ensure immediate availability
       upsert: true // This will overwrite the file if it already exists
     });
 
@@ -80,8 +79,7 @@ export async function updateAvatar(formData: FormData) {
     return { error: { message: `Failed to update profile: ${updateError.message}` } };
   }
 
-  revalidatePath('/profile');
-  revalidatePath('/(app)/layout', 'layout'); // Revalidate layout to update UserNav
+  revalidatePath('/', 'layout');
 
   return { data };
 }

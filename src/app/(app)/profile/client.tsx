@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useRef, useTransition } from 'react';
 import { updateAvatar, updatePassword, deleteAccount, updateProfile } from './actions';
+import { useRouter } from 'next/navigation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,7 @@ import {
 
 export function ProfileClient({ user }: { user: User }) {
     const { toast } = useToast();
+    const router = useRouter();
     const [isAvatarPending, startAvatarTransition] = useTransition();
     const [isPasswordPending, startPasswordTransition] = useTransition();
     const [isDeletePending, startDeleteTransition] = useTransition();
@@ -44,6 +46,7 @@ export function ProfileClient({ user }: { user: User }) {
                 toast({ title: 'Error uploading avatar', description: result.error.message, variant: 'destructive' });
             } else {
                 toast({ title: 'Avatar Updated!', description: 'Your new avatar has been uploaded.' });
+                router.refresh();
             }
             // Reset file input
             if (fileInputRef.current) {
@@ -59,6 +62,7 @@ export function ProfileClient({ user }: { user: User }) {
                 toast({ title: 'Error', description: result.error.message, variant: 'destructive' });
             } else if (result.data) {
                 toast({ title: 'Profile Updated!', description: result.data.message });
+                router.refresh();
             }
         });
     };
